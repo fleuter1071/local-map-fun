@@ -758,4 +758,612 @@
           <button id="collapseSheetBtn" class="sheet-icon-btn" aria-label="Collapse or expand nearby places" title="Collapse or expand nearby places">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
           </button>
-          <button id="hideNearbyBtn" cl
+          <button id="hideNearbyBtn" class="sheet-icon-btn" aria-label="Hide nearby places" title="Hide nearby places">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="sheet-body">
+        <div class="result-summary">
+          <span id="summaryBadge" class="summary-badge">No search yet</span>
+          <span id="sheetMini" class="sheet-mini">Radius 0.5 mi • max 10</span>
+        </div>
+
+        <div id="hintState" class="hint-state">
+          <strong class="nearby-title">Ready when you are</strong>
+          <span class="hint-copy">This stays map-first. Tap a chip to search nearby, then pan if you want and use Search this area.</span>
+        </div>
+
+        <div id="emptyState" class="empty-state" hidden>
+          <strong class="nearby-title">Nothing found here</strong>
+          <span id="emptyCopy" class="empty-copy">Try another category or move the map and search again.</span>
+        </div>
+
+        <div id="resultList" class="result-list" hidden></div>
+      </div>
+    </section>
+
+    <button id="showNearbyBtn" class="nearby-toggle glass" aria-label="Show nearby places">
+      <div>
+        <strong id="showNearbyTitle">Show nearby places</strong>
+        <span id="showNearbySub" class="show-sub">Bring back the nearby results panel</span>
+      </div>
+      <span class="chev">⌃</span>
+    </button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const SEARCH_RADIUS_METERS = 804.67;
+    const MAX_RESULTS = 10;
+    const MAP_DEFAULT_CENTER = [40.7128, -74.0060];
+    const SEARCH_AREA_THRESHOLD_METERS = 140;
+    const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+    const AUTO_COLLAPSE_MS = 2600;
+
+    const categories = {
+      playground: {
+        label: 'Playgrounds', singularLabel: 'Playground', icon: '🛝', markerClass: 'poi-playground',
+        overpass: `node["leisure"="playground"](around:{radius},{lat},{lon}); way["leisure"="playground"](around:{radius},{lat},{lon}); relation["leisure"="playground"](around:{radius},{lat},{lon});`
+      },
+      park: {
+        label: 'Parks', singularLabel: 'Park', icon: '🌳', markerClass: 'poi-park',
+        overpass: `node["leisure"="park"](around:{radius},{lat},{lon}); way["leisure"="park"](around:{radius},{lat},{lon}); relation["leisure"="park"](around:{radius},{lat},{lon});`
+      },
+      parking: {
+        label: 'Parking', singularLabel: 'Parking', icon: '🅿️', markerClass: 'poi-parking',
+        overpass: `node["amenity"="parking"](around:{radius},{lat},{lon}); way["amenity"="parking"](around:{radius},{lat},{lon}); relation["amenity"="parking"](around:{radius},{lat},{lon});`
+      }
+    };
+
+    const map = L.map('map', { zoomControl: false, attributionControl: true }).setView(MAP_DEFAULT_CENTER, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+
+    const bodyEl = document.body;
+    const adaptivePanel = document.getElementById('adaptivePanel');
+    const panelTitle = document.getElementById('panelTitle');
+    const panelSubtitle = document.getElementById('panelSubtitle');
+    const panelStatus = document.getElementById('panelStatus');
+    const minimizePanelBtn = document.getElementById('minimizePanelBtn');
+    const closePanelBtn = document.getElementById('closePanelBtn');
+    const restorePanelBtn = document.getElementById('restorePanelBtn');
+    const restorePanelDot = document.getElementById('restorePanelDot');
+    const restorePanelText = document.getElementById('restorePanelText');
+    const statusDot = document.getElementById('statusDot');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusMeta = document.getElementById('statusMeta');
+    const statusBadge = document.getElementById('statusBadge');
+    const locateBtn = document.getElementById('locateBtn');
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const searchAreaBtn = document.getElementById('searchAreaBtn');
+    const nearbySheet = document.getElementById('nearbySheet');
+    const collapseSheetBtn = document.getElementById('collapseSheetBtn');
+    const hideNearbyBtn = document.getElementById('hideNearbyBtn');
+    const showNearbyBtn = document.getElementById('showNearbyBtn');
+    const nearbyEyebrow = document.getElementById('nearbyEyebrow');
+    const nearbyTitle = document.getElementById('nearbyTitle');
+    const nearbySub = document.getElementById('nearbySub');
+    const summaryBadge = document.getElementById('summaryBadge');
+    const sheetMini = document.getElementById('sheetMini');
+    const hintState = document.getElementById('hintState');
+    const emptyState = document.getElementById('emptyState');
+    const emptyCopy = document.getElementById('emptyCopy');
+    const resultList = document.getElementById('resultList');
+    const showNearbyTitle = document.getElementById('showNearbyTitle');
+    const showNearbySub = document.getElementById('showNearbySub');
+
+    let userMarker = null;
+    let accuracyCircle = null;
+    let userLatLng = null;
+    let lastKnownCoords = null;
+    let activeCategory = null;
+    let activeResults = [];
+    let activeMarkers = [];
+    let lastSearchCenter = null;
+    let isSearching = false;
+    let ignoreNextMoveendSearchArea = false;
+    let collapseTimer = null;
+    let panelClosedByUser = false;
+    let locateRequestInFlight = false;
+    let watchId = null;
+    let popupRef = null;
+
+    function setPanelMode(mode) {
+      bodyEl.classList.toggle('panel-compact', mode === 'compact');
+      bodyEl.classList.toggle('panel-hidden', mode === 'hidden');
+      adaptivePanel.setAttribute('aria-hidden', mode === 'hidden' ? 'true' : 'false');
+      restorePanelBtn.classList.toggle('visible', mode === 'hidden');
+    }
+
+    function scheduleAutoCollapse() {
+      clearTimeout(collapseTimer);
+      if (panelClosedByUser) return;
+      collapseTimer = setTimeout(() => {
+        if (!bodyEl.classList.contains('panel-hidden')) setPanelMode('compact');
+      }, AUTO_COLLAPSE_MS);
+    }
+
+    function showPanel(mode = 'compact', force = false) {
+      clearTimeout(collapseTimer);
+      if (panelClosedByUser && !force) return;
+      panelClosedByUser = false;
+      setPanelMode(mode);
+    }
+
+    function hidePanel() {
+      clearTimeout(collapseTimer);
+      panelClosedByUser = true;
+      setPanelMode('hidden');
+    }
+
+    function updateStatusBadge() {
+      statusBadge.textContent = activeCategory ? categories[activeCategory].label : 'Map';
+    }
+
+    function syncRestorePill() {
+      restorePanelText.textContent = statusTitle.textContent || 'Show status';
+      const hasError = statusDot.classList.contains('error');
+      restorePanelBtn.classList.toggle('error', hasError);
+      restorePanelBtn.setAttribute('aria-label', `${statusTitle.textContent || 'Map status'}. Show map status panel`);
+      restorePanelBtn.title = statusTitle.textContent || 'Show map status panel';
+    }
+
+    function setStatus(title, meta, isError = false, options = {}) {
+      statusTitle.textContent = title;
+      statusMeta.textContent = meta;
+      statusDot.classList.toggle('error', !!isError);
+      syncRestorePill();
+      if (options.expand) showPanel('expanded', options.force);
+      else if (options.compact) showPanel('compact', options.force);
+      if (options.autoCollapse) scheduleAutoCollapse();
+    }
+
+    function formatAccuracy(meters) {
+      if (!Number.isFinite(meters)) return '—';
+      const feet = meters * 3.28084;
+      return feet < 1000 ? `${Math.round(feet)} ft accuracy` : `${Math.round(meters)} m accuracy`;
+    }
+
+    function formatDistance(meters) {
+      if (!Number.isFinite(meters)) return '—';
+      const feet = meters * 3.28084;
+      if (feet < 1000) return `${Math.round(feet)} ft away`;
+      return `${(meters / 1609.344).toFixed(2)} mi away`;
+    }
+
+    function setInteractionLoading(isLoading) {
+      locateBtn.disabled = isLoading;
+      searchAreaBtn.disabled = isLoading;
+      chips.forEach((chip) => { chip.disabled = isLoading; });
+    }
+
+    function hideNearbySheet() {
+      nearbySheet.classList.add('hidden');
+      nearbySheet.setAttribute('aria-hidden', 'true');
+      showNearbyBtn.classList.add('visible');
+    }
+
+    function showNearbySheet() {
+      nearbySheet.classList.remove('hidden');
+      nearbySheet.setAttribute('aria-hidden', 'false');
+      showNearbyBtn.classList.remove('visible');
+    }
+
+    function setSheetCollapsed(collapsed) {
+      nearbySheet.classList.toggle('collapsed', collapsed);
+      collapseSheetBtn.setAttribute('aria-expanded', String(!collapsed));
+      collapseSheetBtn.setAttribute('title', collapsed ? 'Expand nearby places' : 'Collapse nearby places');
+      collapseSheetBtn.setAttribute('aria-label', collapsed ? 'Expand nearby places' : 'Collapse nearby places');
+      collapseSheetBtn.innerHTML = collapsed
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
+    }
+
+    function showSearchAreaButton(show) {
+      searchAreaBtn.classList.toggle('visible', !!show);
+    }
+
+    function getMarkerHtml(categoryKey) {
+      const category = categories[categoryKey];
+      return `<div class="poi-marker ${category.markerClass}">${category.icon}</div>`;
+    }
+
+    function getMarkerIcon(categoryKey) {
+      return L.divIcon({ className: '', html: getMarkerHtml(categoryKey), iconSize: [34,34], iconAnchor: [17,30], popupAnchor: [0,-26] });
+    }
+
+    function getUserIcon() {
+      return L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [22,22], iconAnchor: [11,11] });
+    }
+
+    function getMapsLink(lat, lon, name) {
+      const encodedName = encodeURIComponent(name || 'Selected place');
+      const isAppleDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isAppleDevice) return `https://maps.apple.com/?ll=${lat},${lon}&q=${encodedName}`;
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    }
+
+    function popupHtml(place) {
+      return `<div><p class="popup-title">${escapeHtml(place.name)}</p><p class="popup-meta">${formatDistance(place.distance)}</p><a class="popup-link" href="${getMapsLink(place.lat, place.lon, place.name)}" target="_blank" rel="noopener noreferrer">Open in Maps</a></div>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'", '&#39;');
+    }
+
+    function updateChipSelection(categoryKey) {
+      chips.forEach((chip) => {
+        const selected = chip.dataset.category === categoryKey;
+        chip.classList.toggle('selected', selected);
+        chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+      updateStatusBadge();
+    }
+
+    function clearMarkers() {
+      activeMarkers.forEach((marker) => map.removeLayer(marker));
+      activeMarkers = [];
+      if (popupRef) {
+        map.closePopup(popupRef);
+        popupRef = null;
+      }
+    }
+
+    function clearResultsUi() {
+      resultList.innerHTML = '';
+      resultList.hidden = true;
+      emptyState.hidden = true;
+    }
+
+    function setHintState(show) { hintState.hidden = !show; }
+
+    function setLoadingState(categoryKey, sourceLabel) {
+      const label = categories[categoryKey]?.label || 'Places';
+      setHintState(false);
+      clearResultsUi();
+      summaryBadge.textContent = 'Searching…';
+      nearbyEyebrow.textContent = 'Nearby places';
+      nearbyTitle.textContent = `Finding ${label.toLowerCase()}…`;
+      nearbySub.textContent = `Searching within 0.5 miles of ${sourceLabel}.`;
+      sheetMini.textContent = 'Radius 0.5 mi • max 10';
+      showNearbyTitle.textContent = 'Show nearby places';
+      showNearbySub.textContent = `Bring back ${label.toLowerCase()} results`;
+      setSheetCollapsed(false);
+      showNearbySheet();
+      setStatus('Searching nearby', `${label} • ${sourceLabel}`, false, { compact: true });
+    }
+
+    function setEmptyState(categoryKey) {
+      const label = categories[categoryKey].label;
+      setHintState(false);
+      clearResultsUi();
+      emptyState.hidden = false;
+      emptyCopy.textContent = `No ${label.toLowerCase()} found within 0.5 miles here. Move the map and try Search this area.`;
+      summaryBadge.textContent = '0 results';
+      nearbyTitle.textContent = `No ${label.toLowerCase()} found`;
+      nearbySub.textContent = 'Try another chip or pan somewhere else and search again.';
+      nearbyEyebrow.textContent = label;
+      sheetMini.textContent = 'Radius 0.5 mi • max 10';
+      setSheetCollapsed(false);
+      showNearbySheet();
+      setStatus('No nearby results', `${label} • try moving the map`, false, { compact: true });
+    }
+
+    function renderResults(results, categoryKey, centerLabel) {
+      activeResults = results;
+      clearResultsUi();
+      emptyState.hidden = true;
+      setHintState(false);
+      nearbyEyebrow.textContent = categories[categoryKey].label;
+      nearbyTitle.textContent = results.length ? `${results.length} ${categories[categoryKey].label.toLowerCase()} nearby` : `No ${categories[categoryKey].label.toLowerCase()} found`;
+      nearbySub.textContent = results.length ? `Sorted by nearest first around ${centerLabel}.` : 'Try another chip or pan and search again.';
+      summaryBadge.textContent = results.length === 1 ? '1 result' : `${results.length} results`;
+      sheetMini.textContent = 'Radius 0.5 mi • straight-line distance';
+      showNearbyTitle.textContent = 'Show nearby places';
+      showNearbySub.textContent = results.length ? `${results.length} ${categories[categoryKey].label.toLowerCase()} ready` : 'Bring back the nearby panel';
+
+      if (!results.length) {
+        setEmptyState(categoryKey);
+        return;
+      }
+
+      resultList.hidden = false;
+      const frag = document.createDocumentFragment();
+      results.forEach((place, index) => {
+        const button = document.createElement('button');
+        button.className = 'result-item';
+        button.type = 'button';
+        button.innerHTML = `<span class="result-icon ${categories[categoryKey].markerClass}">${categories[categoryKey].icon}</span><span class="result-copy"><span class="result-name">${escapeHtml(place.name)}</span><span class="result-meta">${formatDistance(place.distance)}</span></span>`;
+        button.addEventListener('click', () => focusPlace(index));
+        frag.appendChild(button);
+      });
+      resultList.appendChild(frag);
+      setSheetCollapsed(false);
+      showNearbySheet();
+      setStatus('GPS locked', `${results.length} ${categories[categoryKey].label.toLowerCase()} ready`, false, { compact: true });
+    }
+
+    function setActiveListItem(index) {
+      const items = Array.from(resultList.querySelectorAll('.result-item'));
+      items.forEach((item, itemIndex) => item.classList.toggle('active', itemIndex === index));
+    }
+
+    function focusPlace(index) {
+      const place = activeResults[index];
+      const marker = activeMarkers[index];
+      if (!place || !marker) return;
+      setActiveListItem(index);
+      map.flyTo([place.lat, place.lon], Math.max(map.getZoom(), 16), { duration: 0.45 });
+      popupRef = marker.bindPopup(popupHtml(place), { closeButton: false, autoPanPaddingTopLeft: [18, 140], autoPanPaddingBottomRight: [18, 260] }).openPopup();
+    }
+
+    function updateStatusFromPosition(coords) {
+      const accuracyText = formatAccuracy(coords.accuracy);
+      const coordsText = `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
+      const activeLabel = activeCategory ? ` • ${categories[activeCategory].label}` : '';
+      setStatus('GPS locked', `${accuracyText} • ${coordsText}${activeLabel}`, false, { compact: true, autoCollapse: true });
+    }
+
+    function supportsGeolocation() {
+      return 'geolocation' in navigator && window.isSecureContext;
+    }
+
+    function geolocationUnavailableMessage() {
+      if (!window.isSecureContext) return 'Location needs HTTPS or localhost on this browser';
+      if (!('geolocation' in navigator)) return 'Geolocation is not supported in this browser';
+      return 'Unable to get your location';
+    }
+
+    function ensureUserLocation() {
+      return new Promise((resolve, reject) => {
+        if (userLatLng) { resolve(userLatLng); return; }
+        if (!supportsGeolocation()) { reject(new Error(geolocationUnavailableMessage())); return; }
+        navigator.geolocation.getCurrentPosition((position) => {
+          onLocateSuccess(position, true);
+          resolve(userLatLng);
+        }, (error) => {
+          onLocateError(error);
+          reject(error);
+        }, {
+          enableHighAccuracy: true, timeout: 12000, maximumAge: 0
+        });
+      });
+    }
+
+    function startLocationWatch() {
+      if (!supportsGeolocation() || watchId !== null) return;
+      watchId = navigator.geolocation.watchPosition((position) => {
+        onLocateSuccess(position, false);
+      }, (error) => {
+        if (error && error.code === 1) return;
+        onLocateError(error);
+      }, {
+        enableHighAccuracy: true, timeout: 15000, maximumAge: 5000
+      });
+    }
+
+    function onLocateSuccess(position, shouldRecenter = false) {
+      const { latitude, longitude, accuracy } = position.coords;
+      lastKnownCoords = position.coords;
+      userLatLng = L.latLng(latitude, longitude);
+      if (!userMarker) userMarker = L.marker(userLatLng, { icon: getUserIcon() }).addTo(map); else userMarker.setLatLng(userLatLng);
+      if (!accuracyCircle) {
+        accuracyCircle = L.circle(userLatLng, { radius: accuracy, color: '#63d0ff', weight: 2, opacity: 0.9, fillColor: '#63d0ff', fillOpacity: 0.14 }).addTo(map);
+      } else {
+        accuracyCircle.setLatLng(userLatLng);
+        accuracyCircle.setRadius(accuracy);
+      }
+      if (shouldRecenter || !lastSearchCenter) map.setView(userLatLng, accuracy < 100 ? 17 : 16, { animate: true });
+      updateStatusFromPosition(position.coords);
+      startLocationWatch();
+    }
+
+    function onLocateError(error) {
+      const messages = {
+        1: 'Location permission denied',
+        2: 'Position unavailable right now',
+        3: 'Location request timed out'
+      };
+      const detail = error instanceof Error ? error.message : (messages[error?.code] || geolocationUnavailableMessage());
+      setStatus('GPS issue', detail, true, { expand: true, force: true });
+    }
+
+    async function locate(shouldRecenter = true) {
+      if (locateRequestInFlight) return;
+      locateRequestInFlight = true;
+      setInteractionLoading(true);
+      setStatus('Locating you', 'Waiting for GPS permission…', false, { expand: true, force: true });
+      try {
+        await ensureUserLocation();
+        if (shouldRecenter && userLatLng) {
+          map.setView(userLatLng, accuracyCircle && accuracyCircle.getRadius() < 100 ? 17 : 16, { animate: true });
+        }
+      } catch (_) {
+      } finally {
+        locateRequestInFlight = false;
+        setInteractionLoading(false);
+      }
+    }
+
+    function getSearchCenter(initialSearch = false) {
+      return initialSearch && userLatLng ? userLatLng : map.getCenter();
+    }
+
+    function buildOverpassQuery(categoryKey, center) {
+      const template = categories[categoryKey].overpass
+        .replaceAll('{radius}', SEARCH_RADIUS_METERS.toFixed(0))
+        .replaceAll('{lat}', center.lat.toFixed(6))
+        .replaceAll('{lon}', center.lng.toFixed(6));
+      return `[out:json][timeout:20];(${template});out center tags;`;
+    }
+
+    function normalizeElement(element, categoryKey, center) {
+      const lat = typeof element.lat === 'number' ? element.lat : element.center?.lat;
+      const lon = typeof element.lon === 'number' ? element.lon : element.center?.lon;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      const tags = element.tags || {};
+      const access = (tags.access || '').toLowerCase();
+      if (['private', 'no', 'customers', 'permit'].includes(access)) return null;
+      const name = tags.name || deriveFallbackName(tags, categoryKey);
+      const distance = map.distance(center, L.latLng(lat, lon));
+      return { id: `${element.type}-${element.id}`, name, lat, lon, distance, tags };
+    }
+
+    function deriveFallbackName(tags, categoryKey) {
+      const singular = categories[categoryKey].singularLabel;
+      if (tags.operator) return `${singular} • ${tags.operator}`;
+      if (tags.brand) return `${singular} • ${tags.brand}`;
+      if (categoryKey === 'parking' && tags.parking) return `Parking • ${tags.parking.replaceAll('_', ' ')}`;
+      return singular;
+    }
+
+    function dedupeResults(items) {
+      const seen = new Set();
+      return items.filter((item) => {
+        const roundedLat = item.lat.toFixed(5);
+        const roundedLon = item.lon.toFixed(5);
+        const key = `${item.name}|${roundedLat}|${roundedLon}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    async function searchNearby(categoryKey, options = {}) {
+      if (isSearching) return;
+      isSearching = true;
+      setInteractionLoading(true);
+      activeCategory = categoryKey;
+      updateChipSelection(categoryKey);
+      showSearchAreaButton(false);
+      const initialSearch = options.initialSearch === true;
+      if (initialSearch) {
+        try {
+          await ensureUserLocation();
+        } catch (_) {
+        }
+      }
+      const center = getSearchCenter(initialSearch);
+      const sourceLabel = initialSearch && userLatLng ? 'your location' : 'this map area';
+      setLoadingState(categoryKey, sourceLabel);
+      clearMarkers();
+      lastSearchCenter = L.latLng(center.lat, center.lng);
+
+      try {
+        const query = buildOverpassQuery(categoryKey, center);
+        const response = await fetch(OVERPASS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+          body: `data=${encodeURIComponent(query)}`
+        });
+        if (!response.ok) throw new Error(`Places request failed (${response.status})`);
+        const data = await response.json();
+        const normalized = (data.elements || [])
+          .map((element) => normalizeElement(element, categoryKey, center))
+          .filter(Boolean);
+        const results = dedupeResults(normalized)
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, MAX_RESULTS);
+        renderResults(results, categoryKey, sourceLabel);
+        activeResults = results;
+        activeMarkers = results.map((place, index) => {
+          const marker = L.marker([place.lat, place.lon], { icon: getMarkerIcon(categoryKey) }).addTo(map);
+          marker.on('click', () => focusPlace(index));
+          return marker;
+        });
+        if (results.length) {
+          const bounds = L.latLngBounds(results.map((place) => [place.lat, place.lon]));
+          if (initialSearch && userLatLng) bounds.extend(userLatLng);
+          if (bounds.isValid()) {
+            ignoreNextMoveendSearchArea = true;
+            map.once('moveend', () => {
+              lastSearchCenter = map.getCenter();
+              showSearchAreaButton(false);
+              ignoreNextMoveendSearchArea = false;
+            });
+            map.fitBounds(bounds.pad(0.2), {
+              paddingTopLeft: [18, bodyEl.classList.contains('panel-hidden') ? 60 : (bodyEl.classList.contains('panel-compact') ? 100 : 156)],
+              paddingBottomRight: [18, 250],
+              maxZoom: 16
+            });
+          }
+        }
+      } catch (error) {
+        setHintState(false);
+        clearResultsUi();
+        emptyState.hidden = false;
+        emptyCopy.textContent = 'Could not load nearby places right now. Try again in a moment.';
+        summaryBadge.textContent = 'Request failed';
+        nearbyEyebrow.textContent = categories[categoryKey].label;
+        nearbyTitle.textContent = 'Nearby search hit a snag';
+        nearbySub.textContent = 'Overpass or network access may be unavailable right now.';
+        showNearbySheet();
+        setStatus('Nearby search issue', 'Could not load places right now', true, { expand: true, force: true });
+      } finally {
+        isSearching = false;
+        setInteractionLoading(false);
+      }
+    }
+
+    map.on('moveend', () => {
+      if (ignoreNextMoveendSearchArea) return;
+      if (!activeCategory || !lastSearchCenter || isSearching) return;
+      const movedMeters = map.getCenter().distanceTo(lastSearchCenter);
+      showSearchAreaButton(movedMeters > SEARCH_AREA_THRESHOLD_METERS);
+    });
+
+    map.on('popupclose', () => {
+      setActiveListItem(-1);
+      popupRef = null;
+    });
+
+    map.on('dragstart', () => {
+      if (!bodyEl.classList.contains('panel-hidden')) setPanelMode('compact');
+    });
+
+    map.on('click', () => {
+      if (!bodyEl.classList.contains('panel-hidden')) setPanelMode('compact');
+    });
+
+    locateBtn.addEventListener('click', () => locate(true));
+    searchAreaBtn.addEventListener('click', () => {
+      if (!activeCategory || isSearching) return;
+      searchNearby(activeCategory, { initialSearch: false });
+    });
+    chips.forEach((chip) => chip.addEventListener('click', () => {
+      if (isSearching) return;
+      searchNearby(chip.dataset.category, { initialSearch: true });
+    }));
+    collapseSheetBtn.addEventListener('click', () => setSheetCollapsed(!nearbySheet.classList.contains('collapsed')));
+    hideNearbyBtn.addEventListener('click', hideNearbySheet);
+    showNearbyBtn.addEventListener('click', showNearbySheet);
+
+    minimizePanelBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      setPanelMode('compact');
+    });
+    closePanelBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      hidePanel();
+    });
+    restorePanelBtn.addEventListener('click', () => showPanel('expanded', true));
+    panelStatus.addEventListener('click', () => {
+      if (bodyEl.classList.contains('panel-compact')) showPanel('expanded');
+    });
+    panelStatus.addEventListener('keydown', (event) => {
+      if ((event.key === 'Enter' || event.key === ' ') && bodyEl.classList.contains('panel-compact')) {
+        event.preventDefault();
+        showPanel('expanded');
+      }
+    });
+
+    updateStatusBadge();
+    syncRestorePill();
+    setSheetCollapsed(true);
+    showPanel('expanded', true);
+    showNearbySheet();
+    locate(true);
+  </script>
+</body>
+</html>
