@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>GPS Map MVP</title>
+  <title>GPS Nearby Explorer</title>
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -12,15 +12,22 @@
   />
   <style>
     :root {
-      --bg: #0c1322;
-      --panel: rgba(12, 20, 35, 0.82);
-      --panel-border: rgba(255,255,255,0.10);
-      --text: #edf3ff;
-      --muted: #98a9ca;
-      --accent: #63d0ff;
+      --bg: #09111f;
+      --panel: rgba(10, 18, 33, 0.84);
+      --panel-strong: rgba(10, 18, 33, 0.94);
+      --panel-soft: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: #edf4ff;
+      --muted: #9db0d1;
+      --accent: #6ad2ff;
+      --park: #55d27c;
+      --playground: #b87cff;
+      --parking: #ffbe5c;
       --danger: #ff8b8b;
-      --shadow: 0 18px 48px rgba(0,0,0,0.34);
+      --shadow: 0 18px 44px rgba(0,0,0,0.38);
       --radius: 22px;
+      --safe-top: max(14px, env(safe-area-inset-top));
+      --safe-bottom: max(14px, env(safe-area-inset-bottom));
     }
 
     * { box-sizing: border-box; }
@@ -33,17 +40,23 @@
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    #app, #map {
-      width: 100%;
-      height: 100%;
+    body { overscroll-behavior: none; }
+    #app, #map { width: 100%; height: 100%; }
+
+    .glass {
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
     }
 
     .topbar {
       position: fixed;
-      top: max(14px, env(safe-area-inset-top));
+      top: var(--safe-top);
       left: 14px;
       right: 14px;
-      z-index: 1000;
+      z-index: 1100;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -53,95 +66,270 @@
 
     .brand,
     .locate,
-    .sheet,
-    .details-toggle {
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      background: var(--panel);
-      border: 1px solid var(--panel-border);
-      box-shadow: var(--shadow);
+    .status-pill,
+    .chip-row,
+    .search-area,
+    .nearby-sheet,
+    .nearby-toggle {
+      pointer-events: auto;
     }
 
     .brand {
-      pointer-events: auto;
-      padding: 12px 14px;
-      border-radius: 18px;
       min-width: 0;
       max-width: 72%;
+      padding: 12px 14px;
+      border-radius: 18px;
     }
 
     .brand h1 {
+      margin: 0 0 3px;
       font-size: 15px;
       line-height: 1.2;
-      margin: 0 0 3px;
       letter-spacing: 0.01em;
     }
 
     .brand p {
       margin: 0;
-      font-size: 12px;
       color: var(--muted);
+      font-size: 12px;
     }
 
     .locate {
-      pointer-events: auto;
-      border: 0;
-      color: var(--text);
       width: 54px;
       height: 54px;
       border-radius: 18px;
-      cursor: pointer;
+      border: 0;
+      color: var(--text);
       display: grid;
       place-items: center;
+      cursor: pointer;
     }
 
-    .locate:active,
-    .details-toggle:active,
-    .sheet-toggle:active { transform: scale(0.98); }
-
     .locate svg,
-    .sheet-toggle svg {
+    .sheet-icon-btn svg {
       width: 24px;
       height: 24px;
       display: block;
     }
 
-    .sheet {
+    .status-pill {
       position: fixed;
+      top: calc(var(--safe-top) + 72px);
       left: 14px;
-      right: 14px;
-      bottom: max(14px, env(safe-area-inset-bottom));
-      z-index: 1000;
-      border-radius: var(--radius);
-      padding: 16px;
-      transition: opacity 180ms ease, transform 220ms ease;
+      z-index: 1090;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 999px;
+      max-width: calc(100vw - 28px);
     }
 
-    .sheet.hidden {
-      opacity: 0;
-      transform: translateY(14px);
-      pointer-events: none;
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 14px rgba(106, 210, 255, 0.9);
+      flex: 0 0 auto;
     }
 
-    .sheet-topline {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 12px;
+    .status-dot.error {
+      background: var(--danger);
+      box-shadow: 0 0 14px rgba(255, 139, 139, 0.9);
     }
 
-    .sheet-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 12px;
-      flex: 1 1 auto;
+    .status-copy {
       min-width: 0;
     }
 
-    .sheet-toggle {
+    .status-copy strong,
+    .nearby-title {
+      display: block;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .status-copy span,
+    .nearby-sub,
+    .result-meta,
+    .empty-copy,
+    .hint-copy,
+    .sheet-mini {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .chip-row {
+      position: fixed;
+      top: calc(var(--safe-top) + 124px);
+      left: 14px;
+      right: 14px;
+      z-index: 1080;
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 8px;
+      border-radius: 20px;
+      scrollbar-width: none;
+    }
+
+    .chip-row::-webkit-scrollbar { display: none; }
+
+    .chip {
       flex: 0 0 auto;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 11px 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: transform 140ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .chip:active,
+    .locate:active,
+    .search-area:active,
+    .sheet-icon-btn:active,
+    .result-item:active,
+    .nearby-toggle:active {
+      transform: scale(0.985);
+    }
+
+    .chip.selected[data-category="playground"] {
+      background: rgba(184, 124, 255, 0.16);
+      border-color: rgba(184, 124, 255, 0.42);
+      box-shadow: inset 0 0 0 1px rgba(184, 124, 255, 0.2);
+    }
+
+    .chip.selected[data-category="park"] {
+      background: rgba(85, 210, 124, 0.16);
+      border-color: rgba(85, 210, 124, 0.42);
+      box-shadow: inset 0 0 0 1px rgba(85, 210, 124, 0.2);
+    }
+
+    .chip.selected[data-category="parking"] {
+      background: rgba(255, 190, 92, 0.16);
+      border-color: rgba(255, 190, 92, 0.42);
+      box-shadow: inset 0 0 0 1px rgba(255, 190, 92, 0.2);
+    }
+
+    .chip-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: inline-grid;
+      place-items: center;
+      font-size: 13px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .search-area {
+      position: fixed;
+      top: calc(var(--safe-top) + 184px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-6px);
+      z-index: 1070;
+      border-radius: 999px;
+      border: 0;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease, transform 180ms ease;
+      white-space: nowrap;
+    }
+
+    .search-area.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .nearby-sheet {
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: var(--safe-bottom);
+      z-index: 1100;
+      border-radius: 24px;
+      overflow: hidden;
+      transition: transform 220ms ease, opacity 180ms ease;
+    }
+
+    .nearby-sheet.hidden {
+      opacity: 0;
+      transform: translateY(16px);
+      pointer-events: none;
+    }
+
+    .nearby-sheet.collapsed .sheet-body {
+      display: none;
+    }
+
+    .sheet-header {
+      padding: 14px 14px 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .sheet-handle {
+      width: 42px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.15);
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .nearby-head-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding-top: 10px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      line-height: 1;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(106, 210, 255, 0.9);
+    }
+
+    .sheet-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-top: 6px;
+    }
+
+    .sheet-icon-btn {
       width: 42px;
       height: 42px;
       border-radius: 14px;
@@ -153,100 +341,98 @@
       cursor: pointer;
     }
 
-    .eyebrow {
-      display: inline-flex;
+    .sheet-body {
+      padding: 0 14px 14px;
+    }
+
+    .result-summary {
+      display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 6px;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0 12px;
     }
 
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      background: var(--accent);
-      box-shadow: 0 0 16px rgba(99, 208, 255, 0.85);
-      flex: 0 0 auto;
-    }
-
-    .dot.error {
-      background: var(--danger);
-      box-shadow: 0 0 16px rgba(255, 139, 139, 0.85);
-    }
-
-    .title {
-      margin: 0;
-      font-size: 18px;
-      line-height: 1.2;
-    }
-
-    .sub {
-      margin: 6px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.35;
-    }
-
-    .pill {
-      flex: 0 0 auto;
+    .summary-badge {
       padding: 8px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.08);
       background: rgba(255,255,255,0.05);
-      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
       color: var(--text);
+      font-size: 12px;
       white-space: nowrap;
     }
 
-    .grid {
+    .result-list {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-      margin-bottom: 12px;
+      max-height: min(44vh, 360px);
+      overflow: auto;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
     }
 
-    .card {
+    .result-item {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 12px;
       padding: 12px;
-      border-radius: 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.08);
       background: rgba(255,255,255,0.045);
-      border: 1px solid rgba(255,255,255,0.07);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .result-item.active {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .result-icon,
+    .marker-badge {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      font-size: 18px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.28);
+    }
+
+    .result-copy {
       min-width: 0;
+      flex: 1 1 auto;
     }
 
-    .label {
+    .result-name {
       display: block;
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-    }
-
-    .value {
-      display: block;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
       line-height: 1.25;
-      word-break: break-word;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
     }
 
-    .note {
-      margin: 0;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
+    .empty-state,
+    .hint-state {
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px dashed rgba(255,255,255,0.10);
     }
 
-    .details-toggle {
+    .nearby-toggle {
       position: fixed;
       left: 14px;
       right: 14px;
-      bottom: max(14px, env(safe-area-inset-bottom));
-      z-index: 1000;
+      bottom: var(--safe-bottom);
+      z-index: 1095;
       border-radius: 18px;
       padding: 12px 14px;
       display: none;
@@ -257,65 +443,109 @@
       cursor: pointer;
     }
 
-    .details-toggle.visible {
+    .nearby-toggle.visible {
       display: flex;
     }
 
-    .details-toggle .left {
-      min-width: 0;
-    }
-
-    .details-toggle .mini {
-      margin: 0;
+    .nearby-toggle .chev {
       color: var(--muted);
-      font-size: 12px;
-    }
-
-    .details-toggle strong {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 2px;
-    }
-
-    .details-toggle .chev {
       font-size: 18px;
       line-height: 1;
-      color: var(--muted);
     }
 
     .user-marker {
       width: 22px;
       height: 22px;
-      border-radius: 50%;
+      border-radius: 999px;
       background: radial-gradient(circle at 35% 35%, #ffffff 0%, #c8f3ff 26%, #63d0ff 58%, #2577ff 100%);
       border: 2px solid rgba(255,255,255,0.98);
       box-shadow: 0 0 0 10px rgba(99, 208, 255, 0.18), 0 0 22px rgba(99, 208, 255, 0.55);
     }
 
+    .poi-marker {
+      width: 34px;
+      height: 34px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      border: 2px solid rgba(255,255,255,0.85);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      transform: translateY(-2px);
+    }
+
+    .poi-park { background: linear-gradient(180deg, #68e28f, #2c9352); }
+    .poi-playground { background: linear-gradient(180deg, #c693ff, #7d40d5); }
+    .poi-parking { background: linear-gradient(180deg, #ffd47f, #d78d2b); }
+
     .leaflet-control-zoom { display: none; }
     .leaflet-control-attribution {
       font-size: 10px;
-      background: rgba(255,255,255,0.84);
+      background: rgba(255,255,255,0.86);
+    }
+
+    .leaflet-popup-content-wrapper,
+    .leaflet-popup-tip {
+      background: rgba(12, 20, 35, 0.96);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: var(--shadow);
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 14px;
+      min-width: 180px;
+    }
+
+    .popup-title {
+      font-size: 14px;
+      font-weight: 800;
+      margin: 0 0 4px;
+    }
+
+    .popup-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin: 0 0 10px;
+    }
+
+    .popup-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
     }
 
     @media (min-width: 760px) {
-      .sheet, .details-toggle {
+      .nearby-sheet,
+      .nearby-toggle {
         max-width: 460px;
+      }
+      .chip-row {
+        max-width: 560px;
       }
     }
   </style>
 </head>
 <body>
   <div id="app">
-    <div id="map" aria-label="Map showing your location"></div>
+    <div id="map" aria-label="Map showing your location and nearby places"></div>
 
     <div class="topbar">
-      <div class="brand">
-        <h1>GPS Map MVP</h1>
-        <p>Your location + nearby surroundings</p>
+      <div class="brand glass">
+        <h1>GPS Nearby Explorer</h1>
+        <p>Playgrounds, parks, and parking around you</p>
       </div>
 
-      <button id="locateBtn" class="locate" aria-label="Locate me" title="Locate me">
+      <button id="locateBtn" class="locate glass" aria-label="Locate me" title="Locate me">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="3"></circle>
           <path d="M12 2v3"></path>
@@ -326,41 +556,74 @@
       </button>
     </div>
 
-    <section id="detailsSheet" class="sheet" aria-live="polite">
-      <div class="sheet-topline">
-        <div class="sheet-head">
-          <div>
-            <div class="eyebrow"><span id="statusDot" class="dot"></span><span id="statusText">Locating</span></div>
-            <h2 id="titleText" class="title">Getting your current position</h2>
-            <p id="subText" class="sub">Allow location access when your browser asks.</p>
-          </div>
-          <div id="timePill" class="pill">Waiting…</div>
+    <div id="statusPill" class="status-pill glass" aria-live="polite">
+      <span id="statusDot" class="status-dot"></span>
+      <div class="status-copy">
+        <strong id="statusTitle">Locating you</strong>
+        <span id="statusMeta">Waiting for GPS permission…</span>
+      </div>
+    </div>
+
+    <div class="chip-row glass" aria-label="Nearby place categories">
+      <button class="chip" data-category="playground" aria-pressed="false">
+        <span class="chip-icon">🛝</span><span>Playgrounds</span>
+      </button>
+      <button class="chip" data-category="park" aria-pressed="false">
+        <span class="chip-icon">🌳</span><span>Parks</span>
+      </button>
+      <button class="chip" data-category="parking" aria-pressed="false">
+        <span class="chip-icon">🅿️</span><span>Parking</span>
+      </button>
+    </div>
+
+    <button id="searchAreaBtn" class="search-area glass" aria-label="Search this area">Search this area</button>
+
+    <section id="nearbySheet" class="nearby-sheet glass collapsed" aria-live="polite">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div class="nearby-head-copy">
+          <div class="eyebrow"><span class="eyebrow-dot"></span><span id="nearbyEyebrow">Nearby places</span></div>
+          <strong id="nearbyTitle" class="nearby-title">Choose a category to explore</strong>
+          <span id="nearbySub" class="nearby-sub">Tap Playgrounds, Parks, or Parking. Results appear only when you ask for them.</span>
         </div>
-        <button id="hideSheetBtn" class="sheet-toggle" aria-label="Hide details" title="Hide details">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M6 15l6-6 6 6"></path>
-          </svg>
-        </button>
+        <div class="sheet-actions">
+          <button id="collapseSheetBtn" class="sheet-icon-btn" aria-label="Collapse or expand nearby places" title="Collapse or expand nearby places">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"></path>
+            </svg>
+          </button>
+          <button id="hideNearbyBtn" class="sheet-icon-btn" aria-label="Hide nearby places" title="Hide nearby places">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M6 15l6-6 6 6"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
-      <div class="grid">
-        <div class="card">
-          <span class="label">Coordinates</span>
-          <span id="coordsValue" class="value">—</span>
+      <div class="sheet-body">
+        <div class="result-summary">
+          <span id="summaryBadge" class="summary-badge">No search yet</span>
+          <span id="sheetMini" class="sheet-mini">Radius 0.5 mi • max 10</span>
         </div>
-        <div class="card">
-          <span class="label">Accuracy</span>
-          <span id="accuracyValue" class="value">—</span>
-        </div>
-      </div>
 
-      <p id="noteText" class="note">Tip: GPS usually works best when this file is hosted over HTTPS or localhost rather than opened directly as a phone file.</p>
+        <div id="hintState" class="hint-state">
+          <strong class="nearby-title">Ready when you are</strong>
+          <span class="hint-copy">This stays map-first. Tap a chip to search nearby, then pan if you want and use Search this area.</span>
+        </div>
+
+        <div id="emptyState" class="empty-state" hidden>
+          <strong class="nearby-title">Nothing found here</strong>
+          <span id="emptyCopy" class="empty-copy">Try another category or move the map and search again.</span>
+        </div>
+
+        <div id="resultList" class="result-list" hidden></div>
+      </div>
     </section>
 
-    <button id="showDetailsBtn" class="details-toggle" aria-label="Show details">
-      <div class="left">
-        <strong>Show details</strong>
-        <p class="mini">Bring back the location panel</p>
+    <button id="showNearbyBtn" class="nearby-toggle glass" aria-label="Show nearby places">
+      <div>
+        <strong id="showNearbyTitle">Show nearby places</strong>
+        <span id="showNearbySub" class="sheet-mini">Bring back the nearby results panel</span>
       </div>
       <span class="chev">⌃</span>
     </button>
@@ -372,7 +635,52 @@
     crossorigin=""
   ></script>
   <script>
-    const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([40.7128, -74.0060], 13);
+    const SEARCH_RADIUS_METERS = 804.67; // 0.5 miles
+    const MAX_RESULTS = 10;
+    const MAP_DEFAULT_CENTER = [40.7128, -74.0060];
+    const SEARCH_AREA_THRESHOLD_METERS = 140;
+    const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+    const categories = {
+      playground: {
+        label: 'Playgrounds',
+        singularLabel: 'Playground',
+        icon: '🛝',
+        markerClass: 'poi-playground',
+        overpass: `
+          node["leisure"="playground"](around:{radius},{lat},{lon});
+          way["leisure"="playground"](around:{radius},{lat},{lon});
+          relation["leisure"="playground"](around:{radius},{lat},{lon});
+        `
+      },
+      park: {
+        label: 'Parks',
+        singularLabel: 'Park',
+        icon: '🌳',
+        markerClass: 'poi-park',
+        overpass: `
+          node["leisure"="park"](around:{radius},{lat},{lon});
+          way["leisure"="park"](around:{radius},{lat},{lon});
+          relation["leisure"="park"](around:{radius},{lat},{lon});
+        `
+      },
+      parking: {
+        label: 'Parking',
+        singularLabel: 'Parking',
+        icon: '🅿️',
+        markerClass: 'poi-parking',
+        overpass: `
+          node["amenity"="parking"](around:{radius},{lat},{lon});
+          way["amenity"="parking"](around:{radius},{lat},{lon});
+          relation["amenity"="parking"](around:{radius},{lat},{lon});
+        `
+      }
+    };
+
+    const map = L.map('map', {
+      zoomControl: false,
+      attributionControl: true
+    }).setView(MAP_DEFAULT_CENTER, 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -381,72 +689,286 @@
 
     const locateBtn = document.getElementById('locateBtn');
     const statusDot = document.getElementById('statusDot');
-    const statusText = document.getElementById('statusText');
-    const titleText = document.getElementById('titleText');
-    const subText = document.getElementById('subText');
-    const timePill = document.getElementById('timePill');
-    const coordsValue = document.getElementById('coordsValue');
-    const accuracyValue = document.getElementById('accuracyValue');
-    const noteText = document.getElementById('noteText');
-    const detailsSheet = document.getElementById('detailsSheet');
-    const hideSheetBtn = document.getElementById('hideSheetBtn');
-    const showDetailsBtn = document.getElementById('showDetailsBtn');
+    const statusTitle = document.getElementById('statusTitle');
+    const statusMeta = document.getElementById('statusMeta');
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const searchAreaBtn = document.getElementById('searchAreaBtn');
+    const nearbySheet = document.getElementById('nearbySheet');
+    const collapseSheetBtn = document.getElementById('collapseSheetBtn');
+    const hideNearbyBtn = document.getElementById('hideNearbyBtn');
+    const showNearbyBtn = document.getElementById('showNearbyBtn');
+    const nearbyEyebrow = document.getElementById('nearbyEyebrow');
+    const nearbyTitle = document.getElementById('nearbyTitle');
+    const nearbySub = document.getElementById('nearbySub');
+    const summaryBadge = document.getElementById('summaryBadge');
+    const sheetMini = document.getElementById('sheetMini');
+    const hintState = document.getElementById('hintState');
+    const emptyState = document.getElementById('emptyState');
+    const emptyCopy = document.getElementById('emptyCopy');
+    const resultList = document.getElementById('resultList');
+    const showNearbyTitle = document.getElementById('showNearbyTitle');
+    const showNearbySub = document.getElementById('showNearbySub');
 
-    let marker = null;
-    let circle = null;
+    let userMarker = null;
+    let accuracyCircle = null;
+    let userLatLng = null;
+    let activeCategory = null;
+    let activeResults = [];
+    let activeMarkers = [];
+    let activePopupMarker = null;
+    let lastSearchCenter = null;
+    let isSearching = false;
+    let ignoreNextMoveendSearchArea = false;
 
-    function hideDetails() {
-      detailsSheet.classList.add('hidden');
-      showDetailsBtn.classList.add('visible');
-    }
-
-    function showDetails() {
-      detailsSheet.classList.remove('hidden');
-      showDetailsBtn.classList.remove('visible');
-    }
-
-    function setLoading() {
-      statusDot.classList.remove('error');
-      statusText.textContent = 'Locating';
-      titleText.textContent = 'Getting your current position';
-      subText.textContent = 'Allow location access when your browser asks.';
-      timePill.textContent = 'Waiting…';
-    }
-
-    function setError(message) {
-      statusDot.classList.add('error');
-      statusText.textContent = 'Error';
-      titleText.textContent = message;
-      subText.textContent = 'Try the locate button again after changing permissions or signal.';
-      timePill.textContent = 'No fix';
-      noteText.textContent = 'If opened directly from a phone file system, GPS may be blocked. Hosting over HTTPS usually fixes that.';
-      showDetails();
-    }
-
-    function updateTime() {
-      timePill.textContent = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    function setStatus(title, meta, isError = false) {
+      statusTitle.textContent = title;
+      statusMeta.textContent = meta;
+      statusDot.classList.toggle('error', !!isError);
     }
 
     function formatAccuracy(meters) {
       if (!Number.isFinite(meters)) return '—';
       const feet = meters * 3.28084;
-      if (feet < 1000) return `${Math.round(feet)} ft`;
-      return `${Math.round(meters)} m`;
+      return feet < 1000 ? `${Math.round(feet)} ft accuracy` : `${Math.round(meters)} m accuracy`;
     }
 
-    function onSuccess(position) {
-      const { latitude, longitude, accuracy } = position.coords;
-      const latlng = [latitude, longitude];
+    function formatDistance(meters) {
+      if (!Number.isFinite(meters)) return '—';
+      const feet = meters * 3.28084;
+      if (feet < 1000) return `${Math.round(feet)} ft away`;
+      return `${(meters / 1609.344).toFixed(2)} mi away`;
+    }
 
-      if (!marker) {
-        const icon = L.divIcon({ className: '', html: '<div class="user-marker"></div>', iconSize: [22, 22], iconAnchor: [11, 11] });
-        marker = L.marker(latlng, { icon }).addTo(map);
-      } else {
-        marker.setLatLng(latlng);
+    function hideNearbySheet() {
+      nearbySheet.classList.add('hidden');
+      showNearbyBtn.classList.add('visible');
+    }
+
+    function showNearbySheet() {
+      nearbySheet.classList.remove('hidden');
+      showNearbyBtn.classList.remove('visible');
+    }
+
+    function setSheetCollapsed(collapsed) {
+      nearbySheet.classList.toggle('collapsed', collapsed);
+      collapseSheetBtn.innerHTML = collapsed
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>';
+    }
+
+    function showSearchAreaButton(show) {
+      searchAreaBtn.classList.toggle('visible', !!show);
+    }
+
+    function getMarkerHtml(categoryKey) {
+      const category = categories[categoryKey];
+      return `<div class="poi-marker ${category.markerClass}">${category.icon}</div>`;
+    }
+
+    function getMarkerIcon(categoryKey) {
+      return L.divIcon({
+        className: '',
+        html: getMarkerHtml(categoryKey),
+        iconSize: [34, 34],
+        iconAnchor: [17, 30],
+        popupAnchor: [0, -26]
+      });
+    }
+
+    function getUserIcon() {
+      return L.divIcon({
+        className: '',
+        html: '<div class="user-marker"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11]
+      });
+    }
+
+    function getMapsLink(lat, lon, name) {
+      const encodedName = encodeURIComponent(name || 'Selected place');
+      const isAppleDevice = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+      if (isAppleDevice) {
+        return `https://maps.apple.com/?ll=${lat},${lon}&q=${encodedName}`;
+      }
+      return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+    }
+
+    function popupHtml(place) {
+      return `
+        <div>
+          <p class="popup-title">${escapeHtml(place.name)}</p>
+          <p class="popup-meta">${formatDistance(place.distance)}</p>
+          <a class="popup-link" href="${getMapsLink(place.lat, place.lon, place.name)}" target="_blank" rel="noopener noreferrer">Open in Maps</a>
+        </div>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function updateChipSelection(categoryKey) {
+      chips.forEach((chip) => {
+        const selected = chip.dataset.category === categoryKey;
+        chip.classList.toggle('selected', selected);
+        chip.setAttribute('aria-pressed', selected ? 'true' : 'false');
+      });
+    }
+
+    function clearMarkers() {
+      activeMarkers.forEach((marker) => map.removeLayer(marker));
+      activeMarkers = [];
+      activePopupMarker = null;
+    }
+
+    function clearResultsUi() {
+      resultList.innerHTML = '';
+      resultList.hidden = true;
+      emptyState.hidden = true;
+    }
+
+    function setHintState(show) {
+      hintState.hidden = !show;
+    }
+
+    function setLoadingState(categoryKey, sourceLabel) {
+      const label = categories[categoryKey]?.label || 'Places';
+      setHintState(false);
+      clearResultsUi();
+      summaryBadge.textContent = 'Searching…';
+      nearbyEyebrow.textContent = 'Nearby places';
+      nearbyTitle.textContent = `Finding ${label.toLowerCase()}…`;
+      nearbySub.textContent = `Searching within 0.5 miles of ${sourceLabel}.`;
+      sheetMini.textContent = 'Radius 0.5 mi • max 10';
+      showNearbyTitle.textContent = 'Show nearby places';
+      showNearbySub.textContent = `Bring back ${label.toLowerCase()} results`;
+      setSheetCollapsed(false);
+      showNearbySheet();
+    }
+
+    function setEmptyState(categoryKey) {
+      const label = categories[categoryKey].label;
+      setHintState(false);
+      clearResultsUi();
+      emptyState.hidden = false;
+      emptyCopy.textContent = `No ${label.toLowerCase()} found within 0.5 miles here. Move the map and try Search this area.`;
+      summaryBadge.textContent = '0 results';
+      nearbyTitle.textContent = `No ${label.toLowerCase()} found`;
+      nearbySub.textContent = 'Try another chip or pan somewhere else and search again.';
+      nearbyEyebrow.textContent = label;
+      sheetMini.textContent = 'Radius 0.5 mi • max 10';
+      setSheetCollapsed(false);
+      showNearbySheet();
+    }
+
+    function renderResults(results, categoryKey, centerLabel) {
+      activeResults = results;
+      clearResultsUi();
+      emptyState.hidden = true;
+      setHintState(false);
+      nearbyEyebrow.textContent = categories[categoryKey].label;
+      nearbyTitle.textContent = results.length
+        ? `${results.length} ${categories[categoryKey].label.toLowerCase()} nearby`
+        : `No ${categories[categoryKey].label.toLowerCase()} found`;
+      nearbySub.textContent = results.length
+        ? `Sorted by nearest first around ${centerLabel}.`
+        : 'Try another chip or pan and search again.';
+      summaryBadge.textContent = results.length === 1 ? '1 result' : `${results.length} results`;
+      sheetMini.textContent = 'Radius 0.5 mi • straight-line distance';
+      showNearbyTitle.textContent = 'Show nearby places';
+      showNearbySub.textContent = results.length
+        ? `${results.length} ${categories[categoryKey].label.toLowerCase()} ready`
+        : 'Bring back the nearby panel';
+
+      if (!results.length) {
+        setEmptyState(categoryKey);
+        return;
       }
 
-      if (!circle) {
-        circle = L.circle(latlng, {
+      resultList.hidden = false;
+      const frag = document.createDocumentFragment();
+
+      results.forEach((place, index) => {
+        const button = document.createElement('button');
+        button.className = 'result-item';
+        button.type = 'button';
+        button.innerHTML = `
+          <span class="result-icon ${categories[categoryKey].markerClass}">${categories[categoryKey].icon}</span>
+          <span class="result-copy">
+            <span class="result-name">${escapeHtml(place.name)}</span>
+            <span class="result-meta">${formatDistance(place.distance)}</span>
+          </span>
+        `;
+        button.addEventListener('click', () => focusPlace(index));
+        frag.appendChild(button);
+      });
+
+      resultList.appendChild(frag);
+      setSheetCollapsed(false);
+      showNearbySheet();
+    }
+
+    function setActiveListItem(index) {
+      const items = Array.from(resultList.querySelectorAll('.result-item'));
+      items.forEach((item, itemIndex) => item.classList.toggle('active', itemIndex === index));
+    }
+
+    function focusPlace(index) {
+      const place = activeResults[index];
+      const marker = activeMarkers[index];
+      if (!place || !marker) return;
+      activePopupMarker = marker;
+      setActiveListItem(index);
+      map.flyTo([place.lat, place.lon], Math.max(map.getZoom(), 16), { duration: 0.45 });
+      marker.bindPopup(popupHtml(place), { closeButton: false, autoPanPaddingTopLeft: [18, 150], autoPanPaddingBottomRight: [18, 260] }).openPopup();
+    }
+
+    function updateStatusFromPosition(coords) {
+      const accuracyText = formatAccuracy(coords.accuracy);
+      setStatus('GPS locked', `${accuracyText} • ${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`);
+    }
+
+    function ensureUserLocation() {
+      return new Promise((resolve, reject) => {
+        if (userLatLng) {
+          resolve(userLatLng);
+          return;
+        }
+        if (!('geolocation' in navigator)) {
+          reject(new Error('Geolocation is not supported in this browser.'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition((position) => {
+          onLocateSuccess(position, true);
+          resolve(userLatLng);
+        }, (error) => {
+          onLocateError(error);
+          reject(error);
+        }, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0
+        });
+      });
+    }
+
+    function onLocateSuccess(position, shouldRecenter = false) {
+      const { latitude, longitude, accuracy } = position.coords;
+      userLatLng = L.latLng(latitude, longitude);
+
+      if (!userMarker) {
+        userMarker = L.marker(userLatLng, { icon: getUserIcon() }).addTo(map);
+      } else {
+        userMarker.setLatLng(userLatLng);
+      }
+
+      if (!accuracyCircle) {
+        accuracyCircle = L.circle(userLatLng, {
           radius: accuracy,
           color: '#63d0ff',
           weight: 2,
@@ -455,50 +977,215 @@
           fillOpacity: 0.14
         }).addTo(map);
       } else {
-        circle.setLatLng(latlng);
-        circle.setRadius(accuracy);
+        accuracyCircle.setLatLng(userLatLng);
+        accuracyCircle.setRadius(accuracy);
       }
 
-      map.setView(latlng, accuracy < 100 ? 17 : 16, { animate: true });
+      if (shouldRecenter || !lastSearchCenter) {
+        map.setView(userLatLng, accuracy < 100 ? 17 : 16, { animate: true });
+      }
 
-      statusDot.classList.remove('error');
-      statusText.textContent = 'Located';
-      titleText.textContent = 'You are here';
-      subText.textContent = 'The map is centered on your current device position.';
-      updateTime();
-      coordsValue.textContent = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-      accuracyValue.textContent = formatAccuracy(accuracy);
-      noteText.textContent = 'The blue circle shows the approximate GPS accuracy radius around your location.';
+      updateStatusFromPosition(position.coords);
     }
 
-    function onError(error) {
+    function onLocateError(error) {
       const messages = {
-        1: 'Permission denied for location',
+        1: 'Location permission denied',
         2: 'Position unavailable right now',
         3: 'Location request timed out'
       };
-      setError(messages[error.code] || 'Unable to get your location');
+      setStatus('GPS issue', messages[error.code] || 'Unable to get your location', true);
     }
 
-    function locate() {
-      setLoading();
-      if (!('geolocation' in navigator)) {
-        setError('Geolocation is not supported in this browser');
-        return;
+    async function locate(shouldRecenter = true) {
+      setStatus('Locating you', 'Waiting for GPS permission…');
+      try {
+        await ensureUserLocation();
+        if (shouldRecenter && userLatLng) {
+          map.setView(userLatLng, accuracyCircle && accuracyCircle.getRadius() < 100 ? 17 : 16, { animate: true });
+        }
+      } catch (_) {
+        // onLocateError already handled the UI
       }
-      navigator.geolocation.getCurrentPosition(onSuccess, onError, {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0
+    }
+
+    function getSearchCenter(initialSearch = false) {
+      if (initialSearch && userLatLng) return userLatLng;
+      return map.getCenter();
+    }
+
+    function buildOverpassQuery(categoryKey, center) {
+      const template = categories[categoryKey].overpass
+        .replaceAll('{radius}', SEARCH_RADIUS_METERS.toFixed(0))
+        .replaceAll('{lat}', center.lat.toFixed(6))
+        .replaceAll('{lon}', center.lng.toFixed(6));
+
+      return `[out:json][timeout:20];(${template});out center tags;`;
+    }
+
+    function normalizeElement(element, categoryKey, center) {
+      const lat = typeof element.lat === 'number' ? element.lat : element.center?.lat;
+      const lon = typeof element.lon === 'number' ? element.lon : element.center?.lon;
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      const tags = element.tags || {};
+      const access = (tags.access || '').toLowerCase();
+      if (['private', 'no', 'customers', 'permit'].includes(access)) return null;
+
+      const name = tags.name || deriveFallbackName(tags, categoryKey);
+      const distance = map.distance(center, L.latLng(lat, lon));
+
+      return {
+        id: `${element.type}-${element.id}`,
+        name,
+        lat,
+        lon,
+        distance,
+        tags
+      };
+    }
+
+    function deriveFallbackName(tags, categoryKey) {
+      const singular = categories[categoryKey].singularLabel;
+      if (tags.operator) return `${singular} • ${tags.operator}`;
+      if (tags.brand) return `${singular} • ${tags.brand}`;
+      if (categoryKey === 'parking' && tags.parking) {
+        return `Parking • ${tags.parking.replaceAll('_', ' ')}`;
+      }
+      return singular;
+    }
+
+    function dedupeResults(items) {
+      const seen = new Set();
+      return items.filter((item) => {
+        const roundedLat = item.lat.toFixed(5);
+        const roundedLon = item.lon.toFixed(5);
+        const key = `${item.name}|${roundedLat}|${roundedLon}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
     }
 
-    locateBtn.addEventListener('click', locate);
-    hideSheetBtn.addEventListener('click', hideDetails);
-    showDetailsBtn.addEventListener('click', showDetails);
+    async function searchNearby(categoryKey, options = {}) {
+      if (isSearching) return;
+      isSearching = true;
+      activeCategory = categoryKey;
+      updateChipSelection(categoryKey);
+      showSearchAreaButton(false);
 
-    locate();
+      const initialSearch = options.initialSearch === true;
+      if (initialSearch) {
+        try {
+          await ensureUserLocation();
+        } catch (_) {
+          // fall back to map center if GPS is unavailable
+        }
+      }
+
+      const center = getSearchCenter(initialSearch);
+      const sourceLabel = initialSearch && userLatLng ? 'your location' : 'this map area';
+      setLoadingState(categoryKey, sourceLabel);
+
+      clearMarkers();
+      lastSearchCenter = L.latLng(center.lat, center.lng);
+
+      try {
+        const query = buildOverpassQuery(categoryKey, center);
+        const response = await fetch(OVERPASS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+          },
+          body: `data=${encodeURIComponent(query)}`
+        });
+
+        if (!response.ok) {
+          throw new Error(`Places request failed (${response.status})`);
+        }
+
+        const data = await response.json();
+        const normalized = (data.elements || [])
+          .map((element) => normalizeElement(element, categoryKey, center))
+          .filter(Boolean);
+
+        const results = dedupeResults(normalized)
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, MAX_RESULTS);
+
+        renderResults(results, categoryKey, sourceLabel);
+        activeResults = results;
+        activeMarkers = results.map((place, index) => {
+          const marker = L.marker([place.lat, place.lon], { icon: getMarkerIcon(categoryKey) }).addTo(map);
+          marker.on('click', () => focusPlace(index));
+          return marker;
+        });
+
+        if (results.length) {
+          const bounds = L.latLngBounds(results.map((place) => [place.lat, place.lon]));
+          if (initialSearch && userLatLng) {
+            bounds.extend(userLatLng);
+          }
+          if (bounds.isValid()) {
+            ignoreNextMoveendSearchArea = true;
+            map.once('moveend', () => {
+              lastSearchCenter = map.getCenter();
+              showSearchAreaButton(false);
+              ignoreNextMoveendSearchArea = false;
+            });
+            map.fitBounds(bounds.pad(0.2), {
+              paddingTopLeft: [18, 190],
+              paddingBottomRight: [18, 250],
+              maxZoom: 16
+            });
+          }
+        }
+      } catch (error) {
+        setHintState(false);
+        clearResultsUi();
+        emptyState.hidden = false;
+        emptyCopy.textContent = 'Could not load nearby places right now. Try again in a moment.';
+        summaryBadge.textContent = 'Request failed';
+        nearbyEyebrow.textContent = categories[categoryKey].label;
+        nearbyTitle.textContent = 'Nearby search hit a snag';
+        nearbySub.textContent = 'Overpass or network access may be unavailable right now.';
+        showNearbySheet();
+      } finally {
+        isSearching = false;
+      }
+    }
+
+    map.on('moveend', () => {
+      if (ignoreNextMoveendSearchArea) return;
+      if (!activeCategory || !lastSearchCenter || isSearching) return;
+      const movedMeters = map.getCenter().distanceTo(lastSearchCenter);
+      showSearchAreaButton(movedMeters > SEARCH_AREA_THRESHOLD_METERS);
+    });
+
+    map.on('popupclose', () => setActiveListItem(-1));
+
+    locateBtn.addEventListener('click', () => locate(true));
+    searchAreaBtn.addEventListener('click', () => {
+      if (!activeCategory) return;
+      searchNearby(activeCategory, { initialSearch: false });
+    });
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const categoryKey = chip.dataset.category;
+        searchNearby(categoryKey, { initialSearch: true });
+      });
+    });
+
+    collapseSheetBtn.addEventListener('click', () => {
+      const collapsed = !nearbySheet.classList.contains('collapsed');
+      setSheetCollapsed(collapsed);
+    });
+
+    hideNearbyBtn.addEventListener('click', hideNearbySheet);
+    showNearbyBtn.addEventListener('click', showNearbySheet);
+
+    setSheetCollapsed(true);
+    locate(true);
   </script>
 </body>
 </html>
-
