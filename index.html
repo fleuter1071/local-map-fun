@@ -633,6 +633,55 @@
       font-weight: 700;
     }
 
+
+
+    .status-restore {
+      position: fixed;
+      top: var(--safe-top);
+      left: 14px;
+      z-index: 1098;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      max-width: calc(100vw - 96px);
+    }
+
+    .status-restore.visible {
+      display: inline-flex;
+    }
+
+    .status-restore-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 12px rgba(106, 210, 255, 0.85);
+      flex: 0 0 auto;
+    }
+
+    .status-restore.error .status-restore-dot {
+      background: var(--danger);
+      box-shadow: 0 0 12px rgba(255, 139, 139, 0.85);
+    }
+
+    .chip[disabled],
+    .search-area[disabled],
+    .locate[disabled] {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    .search-area[disabled] {
+      pointer-events: none;
+    }
+
     @media (min-width: 760px) {
       .nearby-sheet,
       .nearby-toggle,
@@ -674,6 +723,11 @@
       </div>
     </section>
 
+    <button id="restorePanelBtn" class="status-restore glass" aria-label="Show map status panel" title="Show map status panel">
+      <span id="restorePanelDot" class="status-restore-dot"></span>
+      <span id="restorePanelText">Show status</span>
+    </button>
+
     <button id="locateBtn" class="locate glass" aria-label="Locate me" title="Locate me">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="3"></circle>
@@ -704,30 +758,4 @@
           <button id="collapseSheetBtn" class="sheet-icon-btn" aria-label="Collapse or expand nearby places" title="Collapse or expand nearby places">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"></path></svg>
           </button>
-          <button id="hideNearbyBtn" class="sheet-icon-btn" aria-label="Hide nearby places" title="Hide nearby places">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="sheet-body">
-        <div class="result-summary">
-          <span id="summaryBadge" class="summary-badge">No search yet</span>
-          <span id="sheetMini" class="sheet-mini">Radius 0.5 mi • max 10</span>
-        </div>
-
-        <div id="hintState" class="hint-state">
-          <strong class="nearby-title">Ready when you are</strong>
-          <span class="hint-copy">This stays map-first. Tap a chip to search nearby, then pan if you want and use Search this area.</span>
-        </div>
-
-        <div id="emptyState" class="empty-state" hidden>
-          <strong class="nearby-title">Nothing found here</strong>
-          <span id="emptyCopy" class="empty-copy">Try another category or move the map and search again.</span>
-        </div>
-
-        <div id="resultList" class="result-list" hidden></div>
-      </div>
-    </section>
-
-    <button id="showNearbyBtn" class="nearby-toggle glass" aria-label="Show nea
+          <button id="hideNearbyBtn" cl
