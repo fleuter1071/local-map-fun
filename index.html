@@ -794,7 +794,7 @@
     <button id="showNearbyBtn" class="nearby-toggle glass" aria-label="Show nearby places">
       <div>
         <strong id="showNearbyTitle">Show nearby places</strong>
-        <span id="showNearbySub" class="show-sub">Bring back the nearby results panel</span>
+        <span id="showNearbySub" class="show-sub">Tap to open the nearby results list</span>
       </div>
       <span class="chev">⌃</span>
     </button>
@@ -911,7 +911,7 @@
       if (kind === 'locked') locateBtn.classList.add('gps-locked');
       if (kind === 'searching') locateBtn.classList.add('gps-searching');
       if (kind === 'error') locateBtn.classList.add('gps-error');
-      const label = titleText || (kind === 'locked' ? 'GPS locked' : kind === 'searching' ? 'Locating you' : kind === 'error' ? 'GPS issue' : 'Locate me');
+      const label = titleText || (kind === 'locked' ? 'Recenter map' : kind === 'searching' ? 'Locating you' : kind === 'error' ? 'Location issue' : 'Locate me');
       locateBtn.setAttribute('aria-label', label);
       locateBtn.title = label;
     }
@@ -923,7 +923,7 @@
       if (isError) updateLocateVisualState('error', `${title} • ${meta}`);
       else if (/locating|searching/i.test(title)) updateLocateVisualState('searching', `${title} • ${meta}`);
       else updateLocateVisualState('locked', `${title} • ${meta}`);
-      if (options.toast !== false) {
+      if (options.toast === true) {
         showGpsToast(meta ? `${title} • ${meta}` : title, !!isError, options.toastDuration || 2200);
       }
       setPanelMode('hidden');
@@ -1040,7 +1040,7 @@
       sheetMini.textContent = 'Radius 0.5 mi • max 10';
       showNearbyTitle.textContent = 'Show nearby places';
       showNearbySub.textContent = `Bring back ${label.toLowerCase()} results`;
-      setSheetCollapsed(false);
+      setSheetCollapsed(true);
       showNearbySheet();
       setStatus('Searching nearby', `${label} • ${sourceLabel}`, false, { toast: false });
     }
@@ -1056,7 +1056,7 @@
       nearbySub.textContent = 'Try another chip or pan somewhere else and search again.';
       nearbyEyebrow.textContent = label;
       sheetMini.textContent = 'Radius 0.5 mi • max 10';
-      setSheetCollapsed(false);
+      setSheetCollapsed(true);
       showNearbySheet();
       setStatus('No nearby results', `${label} • try moving the map`, false, { compact: true });
     }
@@ -1090,9 +1090,9 @@
         frag.appendChild(button);
       });
       resultList.appendChild(frag);
-      setSheetCollapsed(false);
+      setSheetCollapsed(true);
       showNearbySheet();
-      setStatus('GPS locked', `${results.length} ${categories[categoryKey].label.toLowerCase()} ready`, false, { compact: true });
+      setStatus('Nearby ready', `${results.length} ${categories[categoryKey].label.toLowerCase()} ready`, false, { compact: true });
     }
 
     function setActiveListItem(index) {
@@ -1112,7 +1112,7 @@
     function updateStatusFromPosition(coords) {
       const accuracyText = formatAccuracy(coords.accuracy);
       const coordText = `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
-      setStatus('GPS locked', `${accuracyText} • ${coordText}`, false, { toast: true, toastDuration: 1800 });
+      setStatus('Location ready', `${accuracyText} • ${coordText}`, false, { toast: false });
     }
 
     function supportsGeolocation() {
@@ -1183,7 +1183,7 @@
       if (locateRequestInFlight) return;
       locateRequestInFlight = true;
       setInteractionLoading(true);
-      setStatus('Locating you', 'Waiting for GPS permission…', false, { toast: true, toastDuration: 1800 });
+      setStatus('Locating you', 'Waiting for GPS permission…', false, { toast: false });
       try {
         await ensureUserLocation();
         if (shouldRecenter && userLatLng) {
