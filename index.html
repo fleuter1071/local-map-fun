@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>Local Explorer v2.1.2</title>
+  <title>Local Explorer v2.2.1</title>
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
@@ -70,16 +70,24 @@
     }
 
     .hero {
-      padding: 12px 14px;
+      padding: 10px 12px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
+      transition: padding 180ms ease;
     }
 
     .hero-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+      gap: 10px;
+    }
+
+    .hero-actions {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
+      gap: 8px;
+      flex: 0 0 auto;
     }
 
     .title-wrap {
@@ -95,16 +103,17 @@
     }
 
     .title {
-      font-size: 20px;
+      font-size: 18px;
       line-height: 1.1;
       font-weight: 800;
       margin: 0;
     }
 
     .subtitle {
-      margin: 3px 0 0;
+      margin: 2px 0 0;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      max-width: 30ch;
     }
 
     .icon-btn {
@@ -113,11 +122,33 @@
       color: var(--text);
       border-radius: 14px;
       padding: 10px 12px;
+      min-height: 46px;
       font-weight: 700;
       cursor: pointer;
     }
 
+    .icon-btn.compact-btn {
+      min-width: 44px;
+      padding: 10px;
+      font-size: 18px;
+      line-height: 1;
+    }
+
     .icon-btn:active { transform: translateY(1px); }
+
+    .hero-body {
+      display: grid;
+      gap: 8px;
+      transition: max-height 200ms ease, opacity 180ms ease;
+      max-height: 160px;
+      opacity: 1;
+      overflow: hidden;
+    }
+
+    .panel-minimized .hero-body {
+      max-height: 0;
+      opacity: 0;
+    }
 
     .chips {
       display: flex;
@@ -125,6 +156,7 @@
       overflow-x: auto;
       padding-bottom: 2px;
       scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
     }
 
     .chips::-webkit-scrollbar { display: none; }
@@ -263,6 +295,21 @@
       color: var(--muted);
     }
 
+    .mini-status[hidden] {
+      display: none;
+    }
+
+    .status-close {
+      margin-left: 4px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+
     .dot {
       width: 10px;
       height: 10px;
@@ -278,16 +325,25 @@
       border-radius: 10px 0 0 0;
     }
 
+    .leaflet-popup-content-wrapper {
+      color: #1b2433;
+    }
+
     .place-popup h3 {
       margin: 0 0 6px;
       font-size: 15px;
+      color: #1b2433;
+      font-weight: 800;
     }
 
-    .place-popup p {
+    .place-popup p,
+    .place-popup a {
       margin: 0;
       font-size: 13px;
       line-height: 1.4;
-      color: #dbe7ff;
+      color: #46566f;
+      font-weight: 600;
+      text-decoration: none;
     }
 
     .user-location-dot {
@@ -304,6 +360,41 @@
       color: var(--muted);
       font-size: 13px;
       line-height: 1.45;
+    }
+
+    @media (max-width: 859px) {
+      .topbar {
+        left: 10px;
+        right: 10px;
+      }
+
+      .hero {
+        padding: 8px 10px;
+      }
+
+      .eyebrow {
+        font-size: 10px;
+        margin-bottom: 2px;
+      }
+
+      .title {
+        font-size: 14px;
+      }
+
+      .subtitle {
+        font-size: 11px;
+      }
+
+      .icon-btn {
+        min-height: 42px;
+        padding: 8px 10px;
+        border-radius: 12px;
+      }
+
+      .chip {
+        padding: 9px 12px;
+        font-size: 13px;
+      }
     }
 
     @media (min-width: 860px) {
@@ -327,17 +418,23 @@
     <div id="map" aria-label="Map"></div>
 
     <div class="topbar">
-      <div class="card hero">
+      <div id="controlPanel" class="card hero">
         <div class="hero-row">
           <div class="title-wrap">
             <div class="eyebrow">Local Explorer</div>
-            <h1 class="title">Find nearby spots</h1>
-            <p class="subtitle">Choose a category, then explore freely without snap-back recentering.</p>
+            <h1 class="title">Nearby spots</h1>
           </div>
-          <button id="locateBtn" class="icon-btn" type="button" aria-label="Go to my location">📍 Me</button>
+          <div class="hero-actions">
+            <button id="locateBtn" class="icon-btn" type="button" aria-label="Go to my location">📍 Me</button>
+            <button id="panelToggle" class="icon-btn compact-btn" type="button" aria-label="Minimize categories panel">▾</button>
+          </div>
         </div>
-        <div class="chips" id="categoryChips"><button class="chip" type="button">Parks</button><button class="chip" type="button">Coffee</button><button class="chip" type="button">Restaurants</button></div>
+        <div class="hero-body">
+          <p class="subtitle">Pick a category, then keep the map as the main focus. You can collapse this panel any time.</p>
+          <div class="chips" id="categoryChips"><button class="chip" type="button">Parks</button><button class="chip" type="button">Coffee</button><button class="chip" type="button">Restaurants</button></div>
+        </div>
       </div>
+
     </div>
 
     <div class="bottom-sheet">
@@ -357,9 +454,10 @@
         </div>
       </div>
 
-      <div class="card mini-status">
+      <div id="statusToast" class="card mini-status" hidden>
         <span class="dot"></span>
-        <span id="statusText">v2.1.2 • improved GPS fallback • caching safeguards • no snap-back recentering</span>
+        <span id="statusText">Ready</span>
+        <button id="statusClose" class="status-close" type="button" aria-label="Dismiss status">×</button>
       </div>
     </div>
   </div>
@@ -368,9 +466,9 @@
     src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
   ></script>
   <script>
-    window.addEventListener('error', (e) => { const s=document.getElementById('statusText'); if (s) s.textContent = 'v2.1.1 • app error: ' + (e.message || 'unknown'); });
+    window.addEventListener('error', (e) => { const s=document.getElementById('statusText'); const toast = document.getElementById('statusToast'); if (s) s.textContent = 'v2.2.0 • app error: ' + (e.message || 'unknown'); if (toast) toast.hidden = false; });
     (() => {
-      const VERSION = 'v2.1.2';
+      const VERSION = 'v2.2.1';
       if (!window.L) {
         document.getElementById('statusText').textContent = VERSION + ' • map library failed to load';
         return;
@@ -423,6 +521,8 @@
 
       const chipsEl = document.getElementById('categoryChips');
       const locateBtn = document.getElementById('locateBtn');
+      const controlPanel = document.getElementById('controlPanel');
+      const panelToggle = document.getElementById('panelToggle');
       const resultsShell = document.getElementById('resultsShell');
       const resultsToggle = document.getElementById('resultsToggle');
       const resultList = document.getElementById('resultList');
@@ -430,9 +530,29 @@
       const resultsHeading = document.getElementById('resultsHeading');
       const resultsSubheading = document.getElementById('resultsSubheading');
       const statusText = document.getElementById('statusText');
+      const statusToast = document.getElementById('statusToast');
+      const statusClose = document.getElementById('statusClose');
+      let statusHideTimer = null;
 
-      function setStatus(text) {
+      function isMobileLayout() {
+        return window.innerWidth < 860;
+      }
+
+      function setPanelMinimized(minimized) {
+        controlPanel.classList.toggle('panel-minimized', minimized);
+        panelToggle.textContent = minimized ? '▴' : '▾';
+        panelToggle.setAttribute('aria-label', minimized ? 'Expand categories panel' : 'Minimize categories panel');
+      }
+
+      function showStatus(text, { persist = false } = {}) {
         statusText.textContent = `${VERSION} • ${text}`;
+        statusToast.hidden = false;
+        if (statusHideTimer) clearTimeout(statusHideTimer);
+        if (!persist) {
+          statusHideTimer = setTimeout(() => {
+            statusToast.hidden = true;
+          }, 3200);
+        }
       }
 
       function renderChips() {
@@ -448,6 +568,7 @@
             activeResultId = null;
             renderChips();
             searchCurrentView();
+            if (isMobileLayout()) setPanelMinimized(true);
           });
           chipsEl.appendChild(btn);
         });
@@ -468,6 +589,15 @@
           e.preventDefault();
           toggleResults();
         }
+      });
+
+      panelToggle.addEventListener('click', () => {
+        setPanelMinimized(!controlPanel.classList.contains('panel-minimized'));
+      });
+
+      statusClose.addEventListener('click', () => {
+        statusToast.hidden = true;
+        if (statusHideTimer) clearTimeout(statusHideTimer);
       });
 
       function clearMarkers() {
@@ -596,7 +726,7 @@
         const parts = categoryConfig[currentCategory].overpass.map(part => `${part}(${bbox});`).join('');
         const query = `[out:json][timeout:20];(${parts});out center;`;
 
-        setStatus(`searching ${categoryConfig[currentCategory].label.toLowerCase()} in visible area`);
+        showStatus(`searching ${categoryConfig[currentCategory].label.toLowerCase()} in visible area`);
         resultsHeading.textContent = `${categoryConfig[currentCategory].label} nearby`;
         resultsSubheading.textContent = 'Searching…';
         emptyState.style.display = 'block';
@@ -616,9 +746,9 @@
           renderMarkers();
           updateResultsUI();
           if (placeData.length) {
-            setStatus(`${placeData.length} ${categoryConfig[currentCategory].label.toLowerCase()} loaded • free-pan exploration enabled`);
+            statusToast.hidden = true;
           } else {
-            setStatus(`no ${categoryConfig[currentCategory].label.toLowerCase()} in current view`);
+            showStatus(`no ${categoryConfig[currentCategory].label.toLowerCase()} in current view`);
           }
         } catch (err) {
           console.error(err);
@@ -627,7 +757,7 @@
           updateResultsUI();
           emptyState.style.display = 'block';
           emptyState.textContent = 'Search failed. Try again in a moment or move the map slightly and retry.';
-          setStatus('search failed • likely network or Overpass rate limit issue');
+          showStatus('search failed • likely network or Overpass rate limit issue', { persist: true });
         }
       }
 
@@ -643,7 +773,7 @@
         if (!hasInitiallyCenteredOnUser) {
           hasInitiallyCenteredOnUser = true;
           map.setView(userLatLng, 15, { animate: false });
-          setStatus('initial location found • auto-follow now off so you can explore freely');
+          showStatus('initial location found • auto-follow now off so you can explore freely');
         }
       }
 
@@ -671,7 +801,7 @@
             const lng = pos.coords.longitude;
             updateUserLocation(lat, lng);
             map.flyTo([lat, lng], 15, { duration: 0.45 });
-            setStatus('fresh location acquired on demand');
+            showStatus('fresh location acquired on demand');
             return true;
           } catch (err) {
             lastError = err;
@@ -681,23 +811,23 @@
 
         if (lastError && typeof lastError.code !== 'undefined') {
           if (lastError.code === 1) {
-            setStatus('location permission blocked in browser');
+            showStatus('location permission blocked in browser', { persist: true });
           } else if (lastError.code === 2) {
-            setStatus('location unavailable right now');
+            showStatus('location unavailable right now', { persist: true });
           } else if (lastError.code === 3) {
-            setStatus('location request timed out');
+            showStatus('location request timed out', { persist: true });
           } else {
-            setStatus('could not get current location');
+            showStatus('could not get current location', { persist: true });
           }
         } else {
-          setStatus('could not get current location');
+          showStatus('could not get current location', { persist: true });
         }
         return false;
       }
 
       function startLocationWatch() {
         if (!('geolocation' in navigator)) {
-          setStatus('geolocation unavailable • using fallback location');
+          showStatus('geolocation unavailable • using fallback location', { persist: true });
           return;
         }
 
@@ -709,12 +839,12 @@
             console.warn('Geolocation error', err);
             if (!hasInitiallyCenteredOnUser) {
               if (err && err.code === 1) {
-                setStatus('location permission blocked in browser');
+                showStatus('location permission blocked in browser', { persist: true });
               } else {
-                setStatus('location unavailable • using fallback location');
+                showStatus('location unavailable • using fallback location', { persist: true });
               }
             } else {
-              setStatus('live location update unavailable • map remains fully explorable');
+showStatus('live location update unavailable • map remains fully explorable');
             }
           },
           {
@@ -728,7 +858,7 @@
       locateBtn.addEventListener('click', async () => {
         if (userLatLng) {
           map.flyTo(userLatLng, Math.max(map.getZoom(), 15), { duration: 0.45 });
-          setStatus('jumped back to your location on demand');
+          showStatus('jumped back to your location on demand');
           return;
         }
         await acquireLocationOnDemand();
@@ -743,9 +873,10 @@
         resultsSubheading.textContent = 'Map moved • tap current category again to refresh results in this area';
       });
 
+      setPanelMinimized(isMobileLayout());
       renderChips();
       setResultsOpen(false); // Bug fix #2 companion UX: list stays closed by default.
-      setStatus('ready • improved GPS fallback • no automatic snap-back recentering');
+      statusToast.hidden = true;
       startLocationWatch();
 
       // Helpful for QA / debugging in DevTools.
