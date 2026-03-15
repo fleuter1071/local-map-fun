@@ -23,6 +23,7 @@
       --playground: #b87cff;
       --parking: #ffbe5c;
       --coffee: #d6a36f;
+      --restaurant: #ff7a6b;
       --danger: #ff8b8b;
       --shadow: 0 18px 44px rgba(0,0,0,0.38);
       --radius: 22px;
@@ -602,6 +603,7 @@
     .poi-playground, .result-icon.poi-playground { background: linear-gradient(180deg, #c693ff, #7d40d5); }
     .poi-parking, .result-icon.poi-parking { background: linear-gradient(180deg, #ffd47f, #d78d2b); }
     .poi-coffee, .result-icon.poi-coffee { background: linear-gradient(180deg, #efc695, #9b6331); }
+    .poi-restaurant, .result-icon.poi-restaurant { background: linear-gradient(180deg, #ffb09d, #d84b3e); }
 
     .leaflet-control-zoom { display: none; }
     .leaflet-control-attribution {
@@ -717,7 +719,7 @@
       <div class="panel-head">
         <div class="panel-copy">
           <h1 id="panelTitle" class="panel-title">Nearby Explorer</h1>
-          <p id="panelSubtitle" class="panel-subtitle">Playgrounds, parks, parking, and coffee shops around you</p>
+          <p id="panelSubtitle" class="panel-subtitle">Playgrounds, parks, parking, coffee shops, and restaurants around you</p>
         </div>
         <div class="panel-actions">
           <button id="minimizePanelBtn" class="panel-icon-btn" aria-label="Minimize map status panel" title="Minimize">
@@ -758,6 +760,7 @@
       <button class="chip" data-category="park" aria-pressed="false" aria-label="Parks"><span class="chip-icon">🌳</span><span class="chip-label">Parks</span></button>
       <button class="chip" data-category="parking" aria-pressed="false" aria-label="Parking"><span class="chip-icon">🅿️</span><span class="chip-label">Parking</span></button>
       <button class="chip" data-category="coffee" aria-pressed="false" aria-label="Coffee shops"><span class="chip-icon">☕</span><span class="chip-label">Coffee</span></button>
+      <button class="chip" data-category="restaurant" aria-pressed="false" aria-label="Restaurants"><span class="chip-icon">🍽️</span><span class="chip-label">Food</span></button>
     </div>
 
     <button id="searchAreaBtn" class="search-area glass" aria-label="Search this area">Search this area</button>
@@ -768,7 +771,7 @@
         <div class="nearby-head-copy">
           <div class="eyebrow"><span class="eyebrow-dot"></span><span id="nearbyEyebrow">Nearby places</span></div>
           <strong id="nearbyTitle" class="nearby-title">Choose a category to explore</strong>
-          <span id="nearbySub" class="nearby-sub">Tap Playgrounds, Parks, Parking, or Coffee. Results appear only when you ask for them.</span>
+          <span id="nearbySub" class="nearby-sub">Tap Playgrounds, Parks, Parking, Coffee, or Restaurants. Results appear only when you ask for them.</span>
         </div>
         <div class="sheet-actions">
           <button id="collapseSheetBtn" class="sheet-icon-btn" aria-label="Collapse or expand nearby places" title="Collapse or expand nearby places">
@@ -834,6 +837,10 @@
       coffee: {
         label: 'Coffee shops', singularLabel: 'Coffee shop', icon: '☕', markerClass: 'poi-coffee',
         overpass: `node["amenity"="cafe"](around:{radius},{lat},{lon}); way["amenity"="cafe"](around:{radius},{lat},{lon}); relation["amenity"="cafe"](around:{radius},{lat},{lon});`
+      },
+      restaurant: {
+        label: 'Restaurants', singularLabel: 'Restaurant', icon: '🍽️', markerClass: 'poi-restaurant',
+        overpass: `node["amenity"="restaurant"](around:{radius},{lat},{lon}); way["amenity"="restaurant"](around:{radius},{lat},{lon}); relation["amenity"="restaurant"](around:{radius},{lat},{lon});`
       }
     };
 
