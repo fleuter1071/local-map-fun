@@ -123,18 +123,19 @@
     .chev { font-size:18px; color:var(--muted-2); transition:transform .2s ease; margin-left:10px; }
     .list-sheet.expanded .chev { transform:rotate(180deg); }
     .results-panel { border-top:1px solid rgba(255,255,255,.08); max-height:0; overflow:hidden; transition:max-height .24s ease; }
+    .results-panel[hidden] { display:none !important; }
     .list-sheet.expanded .results-panel { max-height:46vh; overflow:auto; }
-    .results-list { padding:10px 12px 14px; display:flex; flex-direction:column; gap:10px; }
+    .results-list { padding:8px 10px 10px; display:flex; flex-direction:column; gap:8px; }
     .result-card {
       border:1px solid rgba(255,255,255,.09); background: linear-gradient(180deg, rgba(20,31,50,.92), rgba(12,21,36,.9));
-      border-radius:16px; padding:13px;
+      border-radius:14px; padding:11px 11px 10px;
     }
-    .result-name { font-size:15px; font-weight:780; letter-spacing:-.01em; margin-bottom:6px; color:#f7fbff; }
-    .result-meta { font-size:12.5px; color:var(--muted); line-height:1.45; }
-    .result-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+    .result-name { font-size:14px; font-weight:760; letter-spacing:-.01em; margin-bottom:4px; color:#f7fbff; line-height:1.2; }
+    .result-meta { font-size:12px; color:var(--muted); line-height:1.35; }
+    .result-actions { display:flex; gap:7px; margin-top:10px; flex-wrap:wrap; }
     .mini-btn {
       border-radius:999px; border:1px solid rgba(255,255,255,.11); background:rgba(255,255,255,.04);
-      color:var(--text); padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer;
+      color:var(--text); padding:7px 11px; font-size:11.5px; font-weight:700; cursor:pointer;
     }
     .empty-state {
       position:absolute; left:12px; right:12px; bottom:calc(var(--safe-bottom) + 92px); z-index:18;
@@ -207,7 +208,7 @@
         </div>
         <div class="chev">⌃</div>
       </button>
-      <div class="results-panel"><div class="results-list" id="resultsList"></div></div>
+      <div class="results-panel" id="resultsPanel" hidden><div class="results-list" id="resultsList"></div></div>
     </div>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -238,6 +239,7 @@
     const resultTitle = document.getElementById("resultTitle");
     const resultSub = document.getElementById("resultSub");
     const resultsList = document.getElementById("resultsList");
+    const resultsPanel = document.getElementById("resultsPanel");
     const emptyState = document.getElementById("emptyState");
     const locateBtn = document.getElementById("locateBtn");
 
@@ -245,6 +247,7 @@
     let userMarker = null;
     let userLatLng = null;
     let isResultsExpanded = false;
+    let suppressResultBarUntil = 0;
     let suppressMoveNotice = true;
     let activeFetchController = null;
 
@@ -331,6 +334,9 @@
       return categories.find(c => c.id === id) || null;
     }
     function setSelectedCategory(categoryId, runSearch = false) {
+      suppressResultBarUntil = Date.now() + 700;
+      setResultsExpanded(false);
+      requestAnimationFrame(() => setResultsExpanded(false));
       selectedCategory = categoryId;
       updateSelectionUI();
       const category = getCategoryById(selectedCategory);
@@ -344,9 +350,15 @@
       isResultsExpanded = expanded;
       listSheet.classList.toggle("expanded", expanded);
       resultBar.setAttribute("aria-expanded", String(expanded));
+      if (resultsPanel) resultsPanel.hidden = !expanded;
     }
-    resultBar.addEventListener("click", () => {
+    resultBar.addEventListener("click", (event) => {
       if (!selectedCategory) return;
+      if (Date.now() < suppressResultBarUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       setResultsExpanded(!isResultsExpanded);
     });
     function makePopupHtml(place) {
@@ -423,6 +435,9 @@
     async function fetchPlacesForVisibleArea(category) {
       const center = getVisibleCenterLatLng();
       setSearchAreaVisible(false);
+      suppressResultBarUntil = Date.now() + 700;
+      setResultsExpanded(false);
+      requestAnimationFrame(() => setResultsExpanded(false));
       resultTitle.textContent = `${category.label} nearby`;
       resultSub.textContent = 'Searching current map area…';
       if (activeFetchController) activeFetchController.abort();
@@ -451,8 +466,10 @@
           place.marker = marker;
         });
         updateResultCards(places);
-        resultSub.textContent = places.length ? `${places.length} places in this area` : 'No places found in this area';
-        if (places.length && !isResultsExpanded) setResultsExpanded(true);
+        suppressResultBarUntil = Date.now() + 450;
+        setResultsExpanded(false);
+        setTimeout(() => setResultsExpanded(false), 0);
+        resultSub.textContent = places.length ? `${places.length} places in this area · Tap arrow to open` : 'Tap the arrow to open the list';
       } catch (error) {
         if (error.name === 'AbortError') return;
         resultLayer.clearLayers();
@@ -485,22 +502,40 @@
         userMarker.setLatLng([lat, lng]);
       }
     }
-    locateBtn.addEventListener('click', () => {
+    function requestUserLocation({ recenter = false, initial = false } = {}) {
       if (!navigator.geolocation) return;
+      const options = initial
+        ? { enableHighAccuracy: false, timeout: 4000, maximumAge: 300000 }
+        : { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 };
+
       navigator.geolocation.getCurrentPosition(
         pos => {
           const { latitude, longitude } = pos.coords;
+          const hadLocation = !!userLatLng;
           updateUserMarker(latitude, longitude);
-          map.flyTo([latitude, longitude], 15, { duration: 0.5 });
+          if (recenter || !hadLocation) {
+            map.flyTo([latitude, longitude], 15, { duration: hadLocation ? 0.5 : 0.35 });
+          }
         },
         () => {},
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        options
       );
+    }
+
+    locateBtn.addEventListener('click', () => {
+      if (userLatLng) {
+        map.flyTo([userLatLng.lat, userLatLng.lng], 15, { duration: 0.4 });
+        if (userMarker) userMarker.openPopup();
+        return;
+      }
+      requestUserLocation({ recenter: true });
     });
+
     renderChips();
     renderMoreSheet();
     clearResults();
     setResultsExpanded(false);
+    requestUserLocation({ recenter: true, initial: true });
   </script>
 </body>
 </html>
