@@ -297,6 +297,126 @@
       background:#0f1a2d; color:#eef5ff; border:1px solid rgba(255,255,255,.08); box-shadow:0 16px 40px rgba(0,0,0,.35);
     }
     .leaflet-popup-content { margin:14px 16px 14px 14px; line-height:1.45; }
+
+    .place-detail-sheet {
+      position:absolute;
+      left:10px;
+      right:10px;
+      bottom:calc(var(--safe-bottom) + 94px);
+      z-index:22;
+      border-radius:22px;
+      padding:12px 14px 14px;
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(12px);
+      transition:opacity .22s ease, transform .22s ease;
+    }
+    .place-detail-sheet.show {
+      opacity:1;
+      pointer-events:auto;
+      transform:translateY(0);
+    }
+    .detail-sheet-top {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .detail-sheet-copy { min-width:0; flex:1; }
+    .detail-eyebrow {
+      font-size:11px;
+      font-weight:760;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin-bottom:7px;
+    }
+    .detail-title {
+      font-size:20px;
+      font-weight:820;
+      line-height:1.08;
+      letter-spacing:-.03em;
+      color:var(--text);
+      overflow-wrap:anywhere;
+    }
+    .detail-sub {
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.32;
+      color:var(--muted-2);
+    }
+    .detail-close {
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:16px;
+      flex:0 0 auto;
+      cursor:pointer;
+    }
+    .detail-close:active { transform:translateY(1px); }
+    .detail-pill-row {
+      margin-top:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .detail-pill {
+      display:inline-flex;
+      align-items:center;
+      min-height:31px;
+      padding:0 11px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.05);
+      color:var(--text);
+      font-size:12px;
+      font-weight:690;
+      letter-spacing:-.01em;
+    }
+    .detail-list {
+      margin-top:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .detail-item {
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      min-width:0;
+    }
+    .detail-icon {
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(255,255,255,.055);
+      color:rgba(244,247,253,.92);
+      font-size:12px;
+      flex:0 0 auto;
+      margin-top:1px;
+    }
+    .detail-text {
+      min-width:0;
+      font-size:13px;
+      line-height:1.38;
+      color:var(--text);
+      overflow-wrap:anywhere;
+    }
+    .detail-text a {
+      color:#d7ecff;
+      text-decoration:none;
+      border-bottom:1px solid rgba(215,236,255,.35);
+    }
+    .detail-text a:active { opacity:.86; }
     .popup-name { font-weight:820; font-size:15px; margin-bottom:6px; color:#f6fbff; }
     .popup-meta { font-size:12px; color:#c3d3e8; }
     @media (min-width:768px) {
@@ -305,6 +425,8 @@
       .tray-sub { display:inline; }
       .sheet { max-width:720px; margin:0 auto; }
       .list-sheet { left:50%; right:auto; width:min(640px, calc(100% - 20px)); transform:translateX(-50%); }
+      .place-detail-sheet { left:50%; right:auto; width:min(640px, calc(100% - 20px)); transform:translateX(-50%) translateY(12px); }
+      .place-detail-sheet.show { transform:translateX(-50%) translateY(0); }
       .empty-state { left:50%; right:auto; width:min(520px, calc(100% - 24px)); transform:translateX(-50%); }
       .search-area-btn { top:calc(var(--safe-top) + 90px); }
     }
@@ -337,6 +459,19 @@
         <button class="close-btn" id="closeSheetBtn" aria-label="Close categories">✕</button>
       </div>
       <div class="category-grid" id="categoryGrid"></div>
+    </div>
+
+    <div class="place-detail-sheet glass" id="placeDetailSheet" aria-hidden="true">
+      <div class="detail-sheet-top">
+        <div class="detail-sheet-copy">
+          <div class="detail-eyebrow">Place details</div>
+          <div class="detail-title" id="detailTitle">Place</div>
+          <div class="detail-sub" id="detailSub" hidden></div>
+        </div>
+        <button class="detail-close" id="detailCloseBtn" type="button" aria-label="Close place details">✕</button>
+      </div>
+      <div class="detail-pill-row" id="detailPillRow"></div>
+      <div class="detail-list" id="detailList"></div>
     </div>
 <div class="list-sheet glass" id="listSheet">
       <button class="result-bar" id="resultBar" aria-expanded="false">
@@ -378,7 +513,13 @@
     const resultSub = document.getElementById("resultSub");
     const resultsList = document.getElementById("resultsList");
     const resultsPanel = document.getElementById("resultsPanel");
-        const locateBtn = document.getElementById("locateBtn");
+    const locateBtn = document.getElementById("locateBtn");
+    const placeDetailSheet = document.getElementById("placeDetailSheet");
+    const detailCloseBtn = document.getElementById("detailCloseBtn");
+    const detailTitle = document.getElementById("detailTitle");
+    const detailSub = document.getElementById("detailSub");
+    const detailPillRow = document.getElementById("detailPillRow");
+    const detailList = document.getElementById("detailList");
 
     let selectedCategory = null;
     let userMarker = null;
@@ -388,6 +529,7 @@
     let suppressMoveNotice = true;
     let activeFetchController = null;
     let currentPlaces = [];
+    let activePlaceId = null;
 
     const map = L.map("map", { zoomControl:false, preferCanvas:true }).setView(defaultCenter, defaultZoom);
     L.control.zoom({ position:"bottomright" }).addTo(map);
@@ -449,6 +591,82 @@
     }
     closeSheetBtn.addEventListener("click", closeMoreSheet);
     scrim.addEventListener("click", closeMoreSheet);
+    detailCloseBtn.addEventListener("click", closePlaceDetails);
+
+    function compactAddress(tags) {
+      if (!tags) return "";
+      const parts = [
+        tags["addr:housenumber"],
+        tags["addr:street"],
+        tags["addr:city"] || tags["addr:town"] || tags["addr:village"],
+        tags["addr:state"],
+        tags["addr:postcode"]
+      ].filter(Boolean);
+      return parts.join(parts.length > 2 ? ", " : " ").replace(/\s+,/g, ',').trim();
+    }
+    function closePlaceDetails() {
+      activePlaceId = null;
+      placeDetailSheet.classList.remove("show");
+      placeDetailSheet.setAttribute("aria-hidden", "true");
+      detailTitle.textContent = "Place";
+      detailSub.hidden = true;
+      detailSub.textContent = "";
+      detailPillRow.innerHTML = "";
+      detailList.innerHTML = "";
+    }
+    function openPlaceDetails(place) {
+      if (!place) return;
+      activePlaceId = place.id || null;
+      detailTitle.textContent = place.name || "Unnamed place";
+
+      const subParts = [place.typeLabel, place.distanceText].filter(Boolean);
+      if (subParts.length) {
+        detailSub.hidden = false;
+        detailSub.textContent = subParts.join(" · ");
+      } else {
+        detailSub.hidden = true;
+        detailSub.textContent = "";
+      }
+
+      detailPillRow.innerHTML = "";
+      const pills = [];
+      if (place.typeLabel) pills.push(place.typeLabel);
+      if (place.cuisine) pills.push(place.cuisine);
+      pills.slice(0, 3).forEach(value => {
+        const pill = document.createElement("div");
+        pill.className = "detail-pill";
+        pill.textContent = value;
+        detailPillRow.appendChild(pill);
+      });
+
+      detailList.innerHTML = "";
+      const items = [];
+      if (place.address) items.push({ icon: "📍", value: place.address });
+      if (place.openingHours) items.push({ icon: "🕒", value: place.openingHours });
+      if (place.phone) items.push({ icon: "☎", value: place.phone });
+      if (place.website) {
+        const safeUrl = /^https?:\/\//i.test(place.website) ? place.website : `https://${place.website}`;
+        items.push({ icon: "↗", value: `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(place.website)}</a>`, html: true });
+      }
+
+      items.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "detail-item";
+        const icon = document.createElement("div");
+        icon.className = "detail-icon";
+        icon.textContent = item.icon;
+        const copy = document.createElement("div");
+        copy.className = "detail-text";
+        if (item.html) copy.innerHTML = item.value;
+        else copy.textContent = item.value;
+        row.appendChild(icon);
+        row.appendChild(copy);
+        detailList.appendChild(row);
+      });
+
+      placeDetailSheet.classList.add("show");
+      placeDetailSheet.setAttribute("aria-hidden", "false");
+    }
 
     function formatDistanceMeters(meters) {
       if (meters == null || Number.isNaN(meters)) return "";
@@ -485,6 +703,7 @@
     function setSearchAreaVisible(show) { searchAreaBtn.classList.toggle("show", show); }
     function setResultsExpanded(expanded) {
       isResultsExpanded = expanded;
+      if (expanded) closePlaceDetails();
       listSheet.classList.toggle("expanded", expanded);
       resultBar.setAttribute("aria-expanded", String(expanded));
       if (resultsPanel) resultsPanel.hidden = !expanded;
@@ -550,14 +769,11 @@
         setResultsExpanded(false);
       }
       map.flyTo([place.lat, place.lng], Math.max(map.getZoom(), 17), { duration: 0.45 });
-      window.setTimeout(() => {
-        if (place.marker) {
-          place.marker.openPopup();
-        }
-      }, 220);
+      openPlaceDetails(place);
     }
     function clearResults() {
       currentPlaces = [];
+      closePlaceDetails();
       resultLayer.clearLayers();
       updateResultCards([]);
     }
@@ -584,6 +800,10 @@
         const tags = el.tags || {};
         const typeLabel = titleCase(tags.amenity || tags.shop || tags.leisure || tags.landuse || tags.sport || 'place');
         const distanceMeters = getDistanceMeters(center, { lat, lng });
+        const website = tags.website || tags['contact:website'] || '';
+        const phone = tags.phone || tags['contact:phone'] || tags['contact:mobile'] || '';
+        const cuisine = tags.cuisine ? tags.cuisine.split(';').map(part => titleCase(part.trim())).filter(Boolean).join(' · ') : '';
+        const address = compactAddress(tags);
         return {
           id,
           name: tags.name || tags.brand || tags.operator || 'Unnamed place',
@@ -591,12 +811,19 @@
           typeLabel,
           distanceMeters,
           distanceText: formatDistanceMeters(distanceMeters),
-          mapUrl: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`
+          mapUrl: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`,
+          address,
+          openingHours: tags.opening_hours || '',
+          phone,
+          website,
+          cuisine,
+          tags
         };
       }).filter(Boolean).sort((a, b) => a.distanceMeters - b.distanceMeters).slice(0, 24);
     }
     async function fetchPlacesForVisibleArea(category) {
       const center = getVisibleCenterLatLng();
+      closePlaceDetails();
       setSearchAreaVisible(false);
       suppressResultBarUntil = Date.now() + 700;
       setResultsExpanded(false);
@@ -625,7 +852,9 @@
             fillColor: '#57abff',
             fillOpacity: 0.88
           }).addTo(resultLayer);
-          marker.bindPopup(makePopupHtml(place));
+          marker.on('click', () => {
+            openPlaceDetails(place);
+          });
           place.marker = marker;
         });
         currentPlaces = places;
@@ -642,6 +871,12 @@
         resultSub.textContent = 'Search failed';
       }
     }
+
+    map.on('click', (event) => {
+      if (!event.originalEvent?.target?.closest?.('.leaflet-interactive')) {
+        closePlaceDetails();
+      }
+    });
 
     function positionSearchAreaButton() {
       const topUi = document.querySelector(".top-ui");
