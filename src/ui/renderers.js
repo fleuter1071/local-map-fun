@@ -2,21 +2,24 @@ import { ensureSafeWebsiteUrl, escapeHtml } from "../utils.js";
 
 export function createDomRefs(document) {
   return {
-    topUi: document.querySelector(".top-ui"),
     chipRail: document.getElementById("chipRail"),
-    categoryGrid: document.getElementById("categoryGrid"),
-    moreSheet: document.getElementById("moreSheet"),
-    closeSheetBtn: document.getElementById("closeSheetBtn"),
-    scrim: document.getElementById("scrim"),
-    searchAreaBtn: document.getElementById("searchAreaBtn"),
-    listSheet: document.getElementById("listSheet"),
+    locateBtn: document.getElementById("locateBtn"),
+    contextEyebrow: document.getElementById("contextEyebrow"),
+    contextTitle: document.getElementById("contextTitle"),
+    contextSub: document.getElementById("contextSub"),
+    searchActionBtn: document.getElementById("searchActionBtn"),
+    searchActionTitle: document.getElementById("searchActionTitle"),
+    searchActionSub: document.getElementById("searchActionSub"),
+    searchActionMeta: document.getElementById("searchActionMeta"),
+    discoverySheet: document.getElementById("discoverySheet"),
     resultBar: document.getElementById("resultBar"),
     resultTitle: document.getElementById("resultTitle"),
     resultSub: document.getElementById("resultSub"),
-    resultsList: document.getElementById("resultsList"),
     resultsPanel: document.getElementById("resultsPanel"),
-    locateBtn: document.getElementById("locateBtn"),
-    placeDetailSheet: document.getElementById("placeDetailSheet"),
+    resultsView: document.getElementById("resultsView"),
+    resultsList: document.getElementById("resultsList"),
+    detailView: document.getElementById("detailView"),
+    detailBackBtn: document.getElementById("detailBackBtn"),
     detailCloseBtn: document.getElementById("detailCloseBtn"),
     detailTitle: document.getElementById("detailTitle"),
     detailSub: document.getElementById("detailSub"),
@@ -25,76 +28,51 @@ export function createDomRefs(document) {
   };
 }
 
-function createChip(label, id, extraClass = "") {
+function createChip(label, id) {
   const button = document.createElement("button");
-  button.className = `chip ${extraClass}`.trim();
+  button.className = "chip";
+  button.type = "button";
   button.textContent = label;
   button.dataset.id = id;
   return button;
 }
 
-export function renderChips({ chipRail, quickCategoryIds, categories, selectedCategoryId, onSelectCategory, onOpenMoreSheet }) {
+export function renderChips({ chipRail, categories, selectedCategoryId, onSelectCategory }) {
   chipRail.innerHTML = "";
 
-  quickCategoryIds.forEach((categoryId) => {
-    const category = categories.find((entry) => entry.id === categoryId);
-    if (!category) {
-      return;
-    }
-
+  categories.forEach((category) => {
     const chip = createChip(category.label, category.id);
     chip.classList.toggle("active", category.id === selectedCategoryId);
     chip.addEventListener("click", () => onSelectCategory(category.id, true));
     chipRail.appendChild(chip);
   });
-
-  const moreChip = createChip("More", "more", "ghost");
-  moreChip.addEventListener("click", onOpenMoreSheet);
-  chipRail.appendChild(moreChip);
 }
 
-export function renderCategorySheet({ categoryGrid, categories, selectedCategoryId, onSelectCategory }) {
-  categoryGrid.innerHTML = "";
-
-  categories.forEach((category) => {
-    const button = document.createElement("button");
-    button.className = "sheet-button";
-    button.dataset.id = category.id;
-    button.classList.toggle("active", category.id === selectedCategoryId);
-    button.innerHTML = `<div class="name">${escapeHtml(category.label)}</div><div class="desc">${escapeHtml(category.desc)}</div>`;
-    button.addEventListener("click", () => onSelectCategory(category.id, true));
-    categoryGrid.appendChild(button);
-  });
+export function updateContextBar(refs, eyebrow, title, subtitle) {
+  refs.contextEyebrow.textContent = eyebrow;
+  refs.contextTitle.textContent = title;
+  refs.contextSub.textContent = subtitle;
 }
 
-export function openMoreSheet(refs) {
-  refs.moreSheet.classList.add("show");
-  refs.moreSheet.setAttribute("aria-hidden", "false");
-  refs.scrim.classList.add("show");
-}
-
-export function closeMoreSheet(refs) {
-  refs.moreSheet.classList.remove("show");
-  refs.moreSheet.setAttribute("aria-hidden", "true");
-  refs.scrim.classList.remove("show");
-}
-
-export function setSearchAreaVisible(button, isVisible) {
-  button.classList.toggle("show", isVisible);
-}
-
-export function positionSearchAreaButton(topUi, searchAreaButton) {
-  if (!topUi) {
-    return;
-  }
-  const top = topUi.offsetTop + topUi.offsetHeight + 10;
-  searchAreaButton.style.top = `${top}px`;
+export function updateSearchAction(refs, { title, subtitle, meta, disabled = false, emphasized = false, compact = false }) {
+  refs.searchActionTitle.textContent = title;
+  refs.searchActionSub.textContent = subtitle;
+  refs.searchActionMeta.textContent = meta;
+  refs.searchActionBtn.disabled = disabled;
+  refs.searchActionBtn.classList.toggle("emphasized", emphasized);
+  refs.searchActionBtn.classList.toggle("compact", compact);
 }
 
 export function setResultsExpanded(refs, expanded) {
-  refs.listSheet.classList.toggle("expanded", expanded);
+  refs.discoverySheet.classList.toggle("expanded", expanded);
   refs.resultBar.setAttribute("aria-expanded", String(expanded));
   refs.resultsPanel.hidden = !expanded;
+}
+
+export function setDetailMode(refs, active) {
+  refs.discoverySheet.classList.toggle("detail-mode", active);
+  refs.resultsView.hidden = active;
+  refs.detailView.hidden = !active;
 }
 
 export function updateResultsSummary(refs, title, subtitle) {
@@ -104,6 +82,14 @@ export function updateResultsSummary(refs, title, subtitle) {
 
 export function renderResultsList(resultsList, places, onSelectPlace) {
   resultsList.innerHTML = "";
+
+  if (!places.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty-results";
+    empty.innerHTML = '<div class="empty-results-title">No places found here</div><div class="empty-results-sub">Move the map a little, then search this area again.</div>';
+    resultsList.appendChild(empty);
+    return;
+  }
 
   places.forEach((place) => {
     const row = document.createElement("button");
@@ -136,12 +122,10 @@ export function renderResultsList(resultsList, places, onSelectPlace) {
 }
 
 export function renderResultsError(resultsList, message) {
-  resultsList.innerHTML = `<div class="result-row" role="status" aria-live="polite"><div class="result-main"><div class="result-name">Could not load places</div><div class="result-meta">${escapeHtml(message)}</div></div></div>`;
+  resultsList.innerHTML = `<div class="empty-results" role="status" aria-live="polite"><div class="empty-results-title">Could not load places</div><div class="empty-results-sub">${escapeHtml(message)}</div></div>`;
 }
 
 export function clearPlaceDetails(refs) {
-  refs.placeDetailSheet.classList.remove("show");
-  refs.placeDetailSheet.setAttribute("aria-hidden", "true");
   refs.detailTitle.textContent = "Place";
   refs.detailSub.hidden = true;
   refs.detailSub.textContent = "";
@@ -176,14 +160,18 @@ export function renderPlaceDetails(refs, place) {
 
   refs.detailList.innerHTML = "";
   const detailItems = [];
-  if (place.address) detailItems.push({ icon: "📍", text: place.address });
-  if (place.openingHours) detailItems.push({ icon: "🕒", text: place.openingHours });
-  if (place.phone) detailItems.push({ icon: "☎", text: place.phone });
+
+  if (place.openingHours) detailItems.push({ icon: "Hours", text: place.openingHours });
+  if (place.address) detailItems.push({ icon: "Address", text: place.address });
+  if (place.phone) detailItems.push({ icon: "Phone", text: place.phone });
   if (place.website) {
     detailItems.push({
-      icon: "↗",
+      icon: "Website",
       html: `<a href="${escapeHtml(ensureSafeWebsiteUrl(place.website))}" target="_blank" rel="noopener noreferrer">${escapeHtml(place.website)}</a>`
     });
+  }
+  if (!detailItems.length) {
+    detailItems.push({ icon: "Info", text: "No extra details were available for this place." });
   }
 
   detailItems.forEach((item) => {
@@ -205,7 +193,4 @@ export function renderPlaceDetails(refs, place) {
     row.append(icon, text);
     refs.detailList.appendChild(row);
   });
-
-  refs.placeDetailSheet.classList.add("show");
-  refs.placeDetailSheet.setAttribute("aria-hidden", "false");
 }

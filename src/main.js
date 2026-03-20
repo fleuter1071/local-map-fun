@@ -1,22 +1,20 @@
-import { categories, defaultCenter, defaultZoom, getCategoryById, quickCategoryIds, searchRadiusMeters } from "./config.js";
+import { categories, defaultCenter, defaultZoom, getCategoryById, searchRadiusMeters } from "./config.js";
 import { createMapController } from "./mapController.js";
 import { fetchPlacesForCategory } from "./services/places.js";
 import { requestCurrentPosition } from "./services/geolocation.js";
 import { createAppState } from "./state.js";
 import {
   clearPlaceDetails,
-  closeMoreSheet,
   createDomRefs,
-  openMoreSheet,
-  positionSearchAreaButton,
-  renderCategorySheet,
   renderChips,
   renderPlaceDetails,
   renderResultsError,
   renderResultsList,
+  setDetailMode,
   setResultsExpanded,
-  setSearchAreaVisible,
-  updateResultsSummary
+  updateContextBar,
+  updateResultsSummary,
+  updateSearchAction
 } from "./ui/renderers.js";
 
 const state = createAppState();
@@ -27,15 +25,21 @@ const mapController = createMapController({
   defaultCenter,
   defaultZoom,
   onBackgroundMapClick: () => {
+    if (!state.activePlaceId) {
+      return;
+    }
+
     state.activePlaceId = null;
-    clearPlaceDetails(refs);
+    state.isResultsExpanded = true;
+    syncDiscoveryUi();
   },
   onMarkerSelect: (placeId) => {
-    selectPlace(placeId, false);
+    selectPlace(placeId);
   },
   onMoveStart: () => {
-    if (!state.suppressMoveNotice && state.selectedCategoryId) {
-      setSearchAreaVisible(refs.searchAreaBtn, true);
+    if (!state.suppressMoveNotice && state.selectedCategoryId && state.searchStatus === "ready") {
+      state.searchStatus = "stale";
+      syncDiscoveryUi();
     }
   },
   onMoveEnd: () => {
@@ -43,97 +47,202 @@ const mapController = createMapController({
   }
 });
 
+function getSelectedCategory() {
+  return getCategoryById(state.selectedCategoryId);
+}
+
 function refreshCategoryUi() {
   renderChips({
     chipRail: refs.chipRail,
-    quickCategoryIds,
     categories,
     selectedCategoryId: state.selectedCategoryId,
-    onSelectCategory: (categoryId, shouldSearch) => {
-      setSelectedCategory(categoryId, shouldSearch);
-      closeMoreSheet(refs);
-    },
-    onOpenMoreSheet: () => openMoreSheet(refs)
-  });
-
-  renderCategorySheet({
-    categoryGrid: refs.categoryGrid,
-    categories,
-    selectedCategoryId: state.selectedCategoryId,
-    onSelectCategory: (categoryId, shouldSearch) => {
-      setSelectedCategory(categoryId, shouldSearch);
-      closeMoreSheet(refs);
-    }
+    onSelectCategory: (categoryId, shouldSearch) => setSelectedCategory(categoryId, shouldSearch)
   });
 }
 
-function updateResultBarForCategory() {
-  const category = getCategoryById(state.selectedCategoryId);
-  if (!category) {
-    updateResultsSummary(refs, "Explore nearby", "Choose a category");
+function updateContextUi() {
+  const category = getSelectedCategory();
+
+  if (state.userLatLng) {
+    updateContextBar(
+      refs,
+      "Near your location",
+      category ? `${category.label} nearby` : "Explore nearby",
+      category
+        ? "Move the map to widen the search or pick another category."
+        : "Choose a category to see what is nearby."
+    );
     return;
   }
 
-  updateResultsSummary(refs, `${category.label} nearby`, "Results in current map area");
+  updateContextBar(
+    refs,
+    "Map view",
+    category ? `${category.label} nearby` : "Explore this area",
+    category
+      ? "Use your location or move the map to refine the search."
+      : "Use your location or choose a category to begin."
+  );
 }
 
-function collapseResults() {
-  state.isResultsExpanded = false;
-  setResultsExpanded(refs, false);
-}
+function updateSearchUi() {
+  const category = getSelectedCategory();
+  const compact = state.isResultsExpanded || Boolean(state.activePlaceId);
 
-function setSelectedCategory(categoryId, shouldSearch = false) {
-  state.suppressResultBarUntil = Date.now() + 700;
-  collapseResults();
-  requestAnimationFrame(() => setResultsExpanded(refs, false));
-  state.selectedCategoryId = categoryId;
-  refreshCategoryUi();
-  updateResultBarForCategory();
-
-  const category = getCategoryById(categoryId);
-  if (shouldSearch && category) {
-    runCategorySearch(category);
+  if (!category) {
+    updateSearchAction(refs, {
+      title: "Choose a category",
+      subtitle: "Pick what you want to find nearby.",
+      meta: "Browse",
+      compact
+    });
+    return;
   }
+
+  if (state.searchStatus === "loading") {
+    updateSearchAction(refs, {
+      title: "Searching current area",
+      subtitle: `Looking for ${category.label.toLowerCase()} in the visible map view.`,
+      meta: "Loading",
+      disabled: true,
+      compact: false
+    });
+    return;
+  }
+
+  if (state.searchStatus === "stale") {
+    updateSearchAction(refs, {
+      title: "Search this area",
+      subtitle: `Refresh ${category.label.toLowerCase()} for the current map view.`,
+      meta: "Refresh",
+      emphasized: true,
+      compact: false
+    });
+    return;
+  }
+
+  if (state.searchStatus === "error") {
+    updateSearchAction(refs, {
+      title: "Try this search again",
+      subtitle: "The places service did not respond. Try the current map area again.",
+      meta: "Retry",
+      emphasized: true,
+      compact: false
+    });
+    return;
+  }
+
+  const count = state.currentPlaces.length;
+  if (!count) {
+    updateSearchAction(refs, {
+      title: `No ${category.label.toLowerCase()} found`,
+      subtitle: "Move the map a little, then search this area again.",
+      meta: "Adjust",
+      compact
+    });
+    return;
+  }
+
+  updateSearchAction(refs, {
+    title: `${count} ${category.label.toLowerCase()} nearby`,
+    subtitle: "Open the list or move the map to refresh the area.",
+    meta: compact ? "Results" : "View",
+    compact
+  });
+}
+
+function updateSummaryUi() {
+  const activePlace = findPlaceById(state.activePlaceId);
+  if (activePlace) {
+    updateResultsSummary(
+      refs,
+      activePlace.name || "Selected place",
+      [activePlace.typeLabel, activePlace.distanceText].filter(Boolean).join(" · ") || "Place details"
+    );
+    return;
+  }
+
+  const category = getSelectedCategory();
+  if (!category) {
+    updateResultsSummary(refs, "Explore nearby", "Choose a category to begin");
+    return;
+  }
+
+  if (state.searchStatus === "loading") {
+    updateResultsSummary(refs, `${category.label} nearby`, "Searching current map area");
+    return;
+  }
+
+  if (state.searchStatus === "stale") {
+    updateResultsSummary(refs, `${category.label} nearby`, "Map moved. Search this area to refresh");
+    return;
+  }
+
+  if (state.searchStatus === "error") {
+    updateResultsSummary(refs, `${category.label} nearby`, "Search failed");
+    return;
+  }
+
+  if (!state.currentPlaces.length) {
+    updateResultsSummary(refs, `${category.label} nearby`, "No places found in this area");
+    return;
+  }
+
+  updateResultsSummary(
+    refs,
+    `${category.label} nearby`,
+    `${state.currentPlaces.length} place${state.currentPlaces.length === 1 ? "" : "s"} in this area`
+  );
+}
+
+function syncDiscoveryUi() {
+  const activePlace = findPlaceById(state.activePlaceId);
+  const shouldExpand = activePlace ? true : state.isResultsExpanded;
+
+  setResultsExpanded(refs, shouldExpand);
+  setDetailMode(refs, Boolean(activePlace));
+
+  if (activePlace) {
+    renderPlaceDetails(refs, activePlace);
+  } else {
+    clearPlaceDetails(refs);
+  }
+
+  updateContextUi();
+  updateSearchUi();
+  updateSummaryUi();
 }
 
 function findPlaceById(placeId) {
   return state.currentPlaces.find((place) => place.id === placeId) || null;
 }
 
-function selectPlace(placeId, collapseList = true) {
+function selectPlace(placeId) {
   const place = findPlaceById(placeId);
   if (!place) {
     return;
   }
 
   state.activePlaceId = place.id;
+  state.isResultsExpanded = true;
   state.suppressMoveNotice = true;
-  if (collapseList) {
-    state.suppressResultBarUntil = Date.now() + 350;
-    collapseResults();
-  }
-
   mapController.flyToPlace(place);
-  renderPlaceDetails(refs, place);
+  syncDiscoveryUi();
 }
 
 function clearResults() {
   state.currentPlaces = [];
   state.activePlaceId = null;
   mapController.clearResults();
-  clearPlaceDetails(refs);
   renderResultsList(refs.resultsList, [], () => {});
 }
 
 async function runCategorySearch(category) {
   const center = mapController.getVisibleCenter();
   state.activePlaceId = null;
-  clearPlaceDetails(refs);
-  setSearchAreaVisible(refs.searchAreaBtn, false);
-  state.suppressResultBarUntil = Date.now() + 700;
-  collapseResults();
-  requestAnimationFrame(() => setResultsExpanded(refs, false));
-  updateResultsSummary(refs, `${category.label} nearby`, "Searching current map area…");
+  state.isResultsExpanded = false;
+  state.searchStatus = "loading";
+  syncDiscoveryUi();
 
   if (state.activeFetchController) {
     state.activeFetchController.abort();
@@ -155,16 +264,9 @@ async function runCategorySearch(category) {
     }
 
     state.currentPlaces = places;
+    state.searchStatus = "ready";
     mapController.setResultPlaces(places);
-    renderResultsList(refs.resultsList, places, (placeId) => selectPlace(placeId, true));
-    state.suppressResultBarUntil = Date.now() + 450;
-    collapseResults();
-    setTimeout(() => setResultsExpanded(refs, false), 0);
-    updateResultsSummary(
-      refs,
-      `${category.label} nearby`,
-      places.length ? `${places.length} place${places.length === 1 ? "" : "s"} found` : "No places found in this area"
-    );
+    renderResultsList(refs.resultsList, places, (placeId) => selectPlace(placeId));
   } catch (error) {
     if (error.name === "AbortError") {
       return;
@@ -172,13 +274,28 @@ async function runCategorySearch(category) {
 
     state.currentPlaces = [];
     state.activePlaceId = null;
+    state.searchStatus = "error";
     mapController.clearResults();
     renderResultsError(refs.resultsList, "The places service did not respond. Try again in a moment.");
-    updateResultsSummary(refs, `${category.label} nearby`, "Search failed");
   } finally {
     if (state.activeFetchController === controller) {
       state.activeFetchController = null;
     }
+    syncDiscoveryUi();
+  }
+}
+
+function setSelectedCategory(categoryId, shouldSearch = false) {
+  state.selectedCategoryId = categoryId;
+  state.activePlaceId = null;
+  state.isResultsExpanded = false;
+  state.searchStatus = "stale";
+  refreshCategoryUi();
+  syncDiscoveryUi();
+
+  const category = getCategoryById(categoryId);
+  if (shouldSearch && category) {
+    runCategorySearch(category);
   }
 }
 
@@ -191,44 +308,67 @@ async function syncUserLocation({ recenter = false, initial = false } = {}) {
     mapController.setUserLocation(latitude, longitude);
 
     if (recenter || !hadLocation) {
+      state.suppressMoveNotice = true;
       mapController.flyToCoordinates(latitude, longitude, hadLocation ? 0.5 : 0.35);
     }
+
+    updateContextUi();
   } catch (error) {
-    // Silent fallback keeps the app usable even if location access is denied.
+    updateContextUi();
   }
 }
 
-refs.closeSheetBtn.addEventListener("click", () => closeMoreSheet(refs));
-refs.scrim.addEventListener("click", () => closeMoreSheet(refs));
-refs.detailCloseBtn.addEventListener("click", () => {
-  state.activePlaceId = null;
-  clearPlaceDetails(refs);
-});
-refs.resultBar.addEventListener("click", (event) => {
-  if (!state.selectedCategoryId) {
+refs.resultBar.addEventListener("click", () => {
+  if (state.activePlaceId) {
+    state.activePlaceId = null;
+    state.isResultsExpanded = true;
+    syncDiscoveryUi();
     return;
   }
-  if (Date.now() < state.suppressResultBarUntil) {
-    event.preventDefault();
-    event.stopPropagation();
+
+  if (!state.selectedCategoryId || state.searchStatus === "loading") {
     return;
   }
 
   state.isResultsExpanded = !state.isResultsExpanded;
-  if (state.isResultsExpanded) {
-    state.activePlaceId = null;
-    clearPlaceDetails(refs);
-  }
-  setResultsExpanded(refs, state.isResultsExpanded);
+  syncDiscoveryUi();
 });
-refs.searchAreaBtn.addEventListener("click", () => {
-  const category = getCategoryById(state.selectedCategoryId);
-  if (category) {
+
+refs.searchActionBtn.addEventListener("click", () => {
+  const category = getSelectedCategory();
+  if (!category || state.searchStatus === "loading") {
+    return;
+  }
+
+  if (state.searchStatus === "stale" || state.searchStatus === "error") {
     runCategorySearch(category);
+    return;
   }
+
+  if (!state.currentPlaces.length) {
+    return;
+  }
+
+  state.activePlaceId = null;
+  state.isResultsExpanded = !state.isResultsExpanded;
+  syncDiscoveryUi();
 });
+
+refs.detailBackBtn.addEventListener("click", () => {
+  state.activePlaceId = null;
+  state.isResultsExpanded = true;
+  syncDiscoveryUi();
+});
+
+refs.detailCloseBtn.addEventListener("click", () => {
+  state.activePlaceId = null;
+  state.isResultsExpanded = false;
+  syncDiscoveryUi();
+});
+
 refs.locateBtn.addEventListener("click", async () => {
   if (state.userLatLng) {
+    state.suppressMoveNotice = true;
     mapController.flyToUserLocation(state.userLatLng);
     mapController.openUserPopup();
     return;
@@ -236,11 +376,11 @@ refs.locateBtn.addEventListener("click", async () => {
 
   await syncUserLocation({ recenter: true });
 });
-window.addEventListener("resize", () => positionSearchAreaButton(refs.topUi, refs.searchAreaBtn));
 
 refreshCategoryUi();
-updateResultBarForCategory();
-positionSearchAreaButton(refs.topUi, refs.searchAreaBtn);
+updateContextUi();
 clearResults();
+syncDiscoveryUi();
 setResultsExpanded(refs, false);
+setDetailMode(refs, false);
 syncUserLocation({ recenter: true, initial: true });

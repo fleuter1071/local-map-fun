@@ -5,8 +5,8 @@ export function createAppState() {
     currentPlaces: [],
     activePlaceId: null,
     isResultsExpanded: false,
-    suppressResultBarUntil: 0,
     suppressMoveNotice: true,
-    activeFetchController: null
+    activeFetchController: null,
+    searchStatus: "idle"
   };
 }

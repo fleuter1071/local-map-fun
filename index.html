@@ -10,58 +10,55 @@
 <body>
   <div class="app">
     <div id="map" aria-label="Map"></div>
-    <div class="scrim" id="scrim"></div>
     <div class="top-ui">
-      <div class="top-row">
+      <div class="context-bar glass">
+        <div class="context-copy">
+          <div class="context-eyebrow" id="contextEyebrow">Local Explorer</div>
+          <div class="context-title" id="contextTitle">Explore nearby</div>
+          <div class="context-sub" id="contextSub">Choose a category to see what is nearby.</div>
+        </div>
         <button class="icon-btn locate-only" id="locateBtn" aria-label="Go to my location" title="Go to my location">
           <span class="locate-glyph" aria-hidden="true"></span>
         </button>
       </div>
-      <div class="chip-rail-wrap">
+      <div class="category-strip glass">
         <div class="chip-rail" id="chipRail" aria-label="Quick categories"></div>
       </div>
+      <button class="search-state-btn" id="searchActionBtn" type="button" aria-live="polite">
+        <span class="search-state-icon" aria-hidden="true"></span>
+        <span class="search-state-copy">
+          <span class="search-state-title" id="searchActionTitle">Choose a category</span>
+          <span class="search-state-sub" id="searchActionSub">Pick what you want to find nearby.</span>
+        </span>
+        <span class="search-state-meta" id="searchActionMeta">Browse</span>
+      </button>
     </div>
 
-    <button class="search-area-btn" id="searchAreaBtn" aria-live="polite">
-      <span class="search-area-icon" aria-hidden="true"></span>
-      <span>Search this area</span>
-    </button>
-
-    <div class="sheet glass" id="moreSheet" aria-hidden="true">
-      <div class="sheet-handle"></div>
-      <div class="sheet-header">
-        <div>
-          <div class="sheet-title">More places</div>
-          <div class="sheet-sub">Choose a category without giving up the map.</div>
-        </div>
-        <button class="close-btn" id="closeSheetBtn" aria-label="Close categories">✕</button>
-      </div>
-      <div class="category-grid" id="categoryGrid"></div>
-    </div>
-
-    <div class="place-detail-sheet glass" id="placeDetailSheet" aria-hidden="true">
-      <div class="detail-sheet-top">
-        <div class="detail-sheet-copy">
-          <div class="detail-eyebrow">Place details</div>
-          <div class="detail-title" id="detailTitle">Place</div>
-          <div class="detail-sub" id="detailSub" hidden></div>
-        </div>
-        <button class="detail-close" id="detailCloseBtn" type="button" aria-label="Close place details">✕</button>
-      </div>
-      <div class="detail-pill-row" id="detailPillRow"></div>
-      <div class="detail-list" id="detailList"></div>
-    </div>
-
-    <div class="list-sheet glass" id="listSheet">
-      <button class="result-bar" id="resultBar" aria-expanded="false">
+    <div class="discovery-sheet glass" id="discoverySheet">
+      <button class="result-bar" id="resultBar" aria-expanded="false" type="button">
         <div class="result-copy">
           <div class="result-title" id="resultTitle">Explore nearby</div>
-          <div class="result-sub" id="resultSub">Choose a category</div>
+          <div class="result-sub" id="resultSub">Choose a category to begin</div>
         </div>
         <div class="chev">⌃</div>
       </button>
-      <div class="results-panel" id="resultsPanel" hidden>
-        <div class="results-list" id="resultsList"></div>
+      <div class="sheet-panel" id="resultsPanel" hidden>
+        <div class="results-view" id="resultsView">
+          <div class="results-list" id="resultsList"></div>
+        </div>
+        <div class="detail-view" id="detailView" hidden>
+          <div class="detail-toolbar">
+            <button class="detail-back" id="detailBackBtn" type="button">Nearby results</button>
+            <button class="detail-close" id="detailCloseBtn" type="button" aria-label="Close place details">✕</button>
+          </div>
+          <div class="detail-sheet-copy">
+            <div class="detail-eyebrow">Place details</div>
+            <div class="detail-title" id="detailTitle">Place</div>
+            <div class="detail-sub" id="detailSub" hidden></div>
+          </div>
+          <div class="detail-pill-row" id="detailPillRow"></div>
+          <div class="detail-list" id="detailList"></div>
+        </div>
       </div>
     </div>
   </div>
