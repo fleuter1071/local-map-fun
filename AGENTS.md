@@ -91,3 +91,17 @@ Basic manual QA areas:
 ## Documentation Guidance
 If meaningful work is completed in this repo, add a short repo memory file later if useful.
 For now, keep `AGENTS.md` as the stable operating guide.
+
+## Deployment Workflow
+- Production deploys are done by pushing `main` to `origin`.
+- Before deploy:
+  - stage only intended app and docs files
+  - do not include local log files such as `http-server.log` or `http-server-error.log`
+  - add a short `PROJECT_MEMORY.md` entry for meaningful production-facing changes
+  - run lightweight syntax or sanity checks when relevant
+- Preferred git flow:
+  - `git status`
+  - `git diff --cached --stat`
+  - `git commit -m "..."`
+  - `git push origin main`
+- If common git approval prefixes are available, use them to streamline deploys.
