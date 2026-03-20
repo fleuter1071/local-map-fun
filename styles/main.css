@@ -74,6 +74,11 @@ input {
   gap: 8px;
 }
 
+.top-utility-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .context-bar,
 .category-strip {
   display: flex;
@@ -81,6 +86,10 @@ input {
   gap: 12px;
   border-radius: 22px;
   padding: 10px 12px;
+}
+
+.context-bar[hidden] {
+  display: none !important;
 }
 
 .context-copy {
@@ -222,6 +231,10 @@ input {
   text-align: left;
   cursor: pointer;
   transition: min-height 0.18s ease, padding 0.18s ease, border-radius 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.search-state-btn[hidden] {
+  display: none !important;
 }
 
 .search-state-btn:disabled {

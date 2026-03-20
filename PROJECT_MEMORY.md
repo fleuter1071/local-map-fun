@@ -161,3 +161,47 @@ Value provided: Makes the app easier to understand on first use, reduces competi
 1. Push the redesign to production and validate the live build on a real mobile device.
 2. Decide whether to keep tuning map/list balance or move next to reliability work around Overpass instability.
 3. Refresh repo docs where the old `More` sheet and previous search interaction are still mentioned.
+
+## Date/time
+2026-03-20 10:45:00 -04:00
+
+## Feature name, description, and value provided
+Feature name: Temporary Orientation Header + Persistent Locate Control
+Description: Split the always-available recenter action from the large orientation header so the top heading can disappear after the user starts interacting. The location button now persists independently, while the large context header auto-collapses after meaningful engagement such as searching, moving the map, or opening results.
+Value provided: Reduces top-of-screen clutter on small mobile screens, preserves map space after the user is oriented, and keeps the essential recenter utility available at all times.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\index.html
+- C:\Users\dougs\local-map-fun\styles\main.css
+- C:\Users\dougs\local-map-fun\src\main.js
+- C:\Users\dougs\local-map-fun\src\state.js
+- C:\Users\dougs\local-map-fun\src\ui\renderers.js
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Added explicit UI state for whether the large context header is collapsed.
+- Decoupled the persistent locate control from the temporary orientation header.
+- Chose auto-collapse after engagement instead of a manual close action to reduce decision overhead and chrome on mobile.
+
+## Assumptions
+- Users only need the large orientation header briefly at the start of the flow.
+- The selected category chip, search-status control, and bottom sheet provide enough ongoing context after the header collapses.
+- The locate action must remain available regardless of header visibility.
+
+## Known limitations
+- The collapse behavior is tuned for the current mobile-first flow and has not been adapted for any future broader desktop-specific top navigation.
+- The README QA notes still describe older interactions and should be refreshed later.
+
+## Key learnings that you can bring with you to future sessions
+- Persistent utility actions and temporary orientation messaging should not share the same surface on a small mobile map UI.
+- Auto-collapse is better than a manual dismiss control here because it removes chrome without adding another decision.
+- The app’s biggest UX wins are coming from subtracting repeated UI, not adding more states or components.
+
+## Remaining TODOs
+- Refresh repo docs so the described QA flow matches the current header/search/result behavior.
+- Continue validating whether any remaining top-of-screen copy can be shortened further on very small devices.
+
+## Next steps
+1. Push the temporary-header update to production now that mobile browser QA has passed.
+2. Confirm the live production build preserves the lighter top-of-screen layout on a real phone.
+3. Decide whether the next pass should tune copy density further or shift to reliability work.

@@ -4,6 +4,7 @@ export function createDomRefs(document) {
   return {
     chipRail: document.getElementById("chipRail"),
     locateBtn: document.getElementById("locateBtn"),
+    contextBar: document.getElementById("contextBar"),
     contextEyebrow: document.getElementById("contextEyebrow"),
     contextTitle: document.getElementById("contextTitle"),
     contextSub: document.getElementById("contextSub"),
@@ -52,6 +53,14 @@ export function updateContextBar(refs, eyebrow, title, subtitle) {
   refs.contextEyebrow.textContent = eyebrow;
   refs.contextTitle.textContent = title;
   refs.contextSub.textContent = subtitle;
+}
+
+export function setContextBarVisible(refs, visible) {
+  refs.contextBar.hidden = !visible;
+}
+
+export function setSearchActionVisible(refs, visible) {
+  refs.searchActionBtn.hidden = !visible;
 }
 
 export function updateSearchAction(refs, { title, subtitle, meta, disabled = false, emphasized = false, compact = false }) {

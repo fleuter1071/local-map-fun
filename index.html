@@ -11,15 +11,17 @@
   <div class="app">
     <div id="map" aria-label="Map"></div>
     <div class="top-ui">
-      <div class="context-bar glass">
+      <div class="top-utility-row">
+        <button class="icon-btn locate-only" id="locateBtn" aria-label="Go to my location" title="Go to my location">
+          <span class="locate-glyph" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="context-bar glass" id="contextBar">
         <div class="context-copy">
           <div class="context-eyebrow" id="contextEyebrow">Local Explorer</div>
           <div class="context-title" id="contextTitle">Explore nearby</div>
           <div class="context-sub" id="contextSub">Choose a category to see what is nearby.</div>
         </div>
-        <button class="icon-btn locate-only" id="locateBtn" aria-label="Go to my location" title="Go to my location">
-          <span class="locate-glyph" aria-hidden="true"></span>
-        </button>
       </div>
       <div class="category-strip glass">
         <div class="chip-rail" id="chipRail" aria-label="Quick categories"></div>

@@ -5,6 +5,7 @@ export function createAppState() {
     currentPlaces: [],
     activePlaceId: null,
     isResultsExpanded: false,
+    isContextCollapsed: false,
     suppressMoveNotice: true,
     activeFetchController: null,
     searchStatus: "idle"

@@ -10,8 +10,10 @@ import {
   renderPlaceDetails,
   renderResultsError,
   renderResultsList,
+  setContextBarVisible,
   setDetailMode,
   setResultsExpanded,
+  setSearchActionVisible,
   updateContextBar,
   updateResultsSummary,
   updateSearchAction
@@ -37,6 +39,7 @@ const mapController = createMapController({
     selectPlace(placeId);
   },
   onMoveStart: () => {
+    collapseContextHeader();
     if (!state.suppressMoveNotice && state.selectedCategoryId && state.searchStatus === "ready") {
       state.searchStatus = "stale";
       syncDiscoveryUi();
@@ -51,6 +54,12 @@ function getSelectedCategory() {
   return getCategoryById(state.selectedCategoryId);
 }
 
+function collapseContextHeader() {
+  if (!state.isContextCollapsed) {
+    state.isContextCollapsed = true;
+  }
+}
+
 function refreshCategoryUi() {
   renderChips({
     chipRail: refs.chipRail,
@@ -61,33 +70,61 @@ function refreshCategoryUi() {
 }
 
 function updateContextUi() {
-  const category = getSelectedCategory();
+  const hasLocation = Boolean(state.userLatLng);
+  const eyebrow = hasLocation ? "Near your location" : "Map view";
+  const title = hasLocation ? "Explore nearby" : "Explore this area";
+  const shouldShow = !state.isContextCollapsed && (!state.selectedCategoryId || state.searchStatus !== "ready" || !state.currentPlaces.length);
 
-  if (state.userLatLng) {
+  setContextBarVisible(refs, shouldShow);
+
+  if (!state.selectedCategoryId) {
     updateContextBar(
       refs,
-      "Near your location",
-      category ? `${category.label} nearby` : "Explore nearby",
-      category
-        ? "Move the map to widen the search or pick another category."
-        : "Choose a category to see what is nearby."
+      eyebrow,
+      title,
+      hasLocation ? "Choose a category to see what is nearby." : "Use your location or choose a category to begin."
     );
     return;
   }
 
-  updateContextBar(
-    refs,
-    "Map view",
-    category ? `${category.label} nearby` : "Explore this area",
-    category
-      ? "Use your location or move the map to refine the search."
-      : "Use your location or choose a category to begin."
-  );
+  if (state.searchStatus === "loading") {
+    updateContextBar(
+      refs,
+      eyebrow,
+      title,
+      "Searching the current map area."
+    );
+    return;
+  }
+
+  if (state.searchStatus === "stale") {
+    updateContextBar(refs, eyebrow, title, "Move the map or refresh the current area.");
+    return;
+  }
+
+  if (state.searchStatus === "error") {
+    updateContextBar(refs, eyebrow, title, "Try the search again or choose another category.");
+    return;
+  }
+
+  if (!state.currentPlaces.length) {
+    updateContextBar(refs, eyebrow, title, "Move the map or choose another category.");
+    return;
+  }
+
+  updateContextBar(refs, eyebrow, title, "Choose a place or move the map to search again.");
 }
 
 function updateSearchUi() {
   const category = getSelectedCategory();
   const compact = state.isResultsExpanded || Boolean(state.activePlaceId);
+
+  if (category && state.searchStatus === "ready" && state.currentPlaces.length) {
+    setSearchActionVisible(refs, false);
+    return;
+  }
+
+  setSearchActionVisible(refs, true);
 
   if (!category) {
     updateSearchAction(refs, {
@@ -138,7 +175,7 @@ function updateSearchUi() {
       title: `No ${category.label.toLowerCase()} found`,
       subtitle: "Move the map a little, then search this area again.",
       meta: "Adjust",
-      compact
+      compact: false
     });
     return;
   }
@@ -226,6 +263,7 @@ function selectPlace(placeId) {
   state.activePlaceId = place.id;
   state.isResultsExpanded = true;
   state.suppressMoveNotice = true;
+  collapseContextHeader();
   mapController.flyToPlace(place);
   syncDiscoveryUi();
 }
@@ -290,6 +328,7 @@ function setSelectedCategory(categoryId, shouldSearch = false) {
   state.activePlaceId = null;
   state.isResultsExpanded = false;
   state.searchStatus = "stale";
+  collapseContextHeader();
   refreshCategoryUi();
   syncDiscoveryUi();
 
@@ -319,6 +358,7 @@ async function syncUserLocation({ recenter = false, initial = false } = {}) {
 }
 
 refs.resultBar.addEventListener("click", () => {
+  collapseContextHeader();
   if (state.activePlaceId) {
     state.activePlaceId = null;
     state.isResultsExpanded = true;
@@ -335,6 +375,7 @@ refs.resultBar.addEventListener("click", () => {
 });
 
 refs.searchActionBtn.addEventListener("click", () => {
+  collapseContextHeader();
   const category = getSelectedCategory();
   if (!category || state.searchStatus === "loading") {
     return;
@@ -355,12 +396,14 @@ refs.searchActionBtn.addEventListener("click", () => {
 });
 
 refs.detailBackBtn.addEventListener("click", () => {
+  collapseContextHeader();
   state.activePlaceId = null;
   state.isResultsExpanded = true;
   syncDiscoveryUi();
 });
 
 refs.detailCloseBtn.addEventListener("click", () => {
+  collapseContextHeader();
   state.activePlaceId = null;
   state.isResultsExpanded = false;
   syncDiscoveryUi();
@@ -368,6 +411,7 @@ refs.detailCloseBtn.addEventListener("click", () => {
 
 refs.locateBtn.addEventListener("click", async () => {
   if (state.userLatLng) {
+    collapseContextHeader();
     state.suppressMoveNotice = true;
     mapController.flyToUserLocation(state.userLatLng);
     mapController.openUserPopup();
