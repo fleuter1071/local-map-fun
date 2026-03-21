@@ -73,8 +73,8 @@ Core app files:
 
 ## Collaboration Style For This Repo
 When working with the user in this repo:
-- Use concise, plain language. Do not be verbose. Clear and straightforward.
-- Explain what you are doing and why you are doing it.
+- Use concise, plain language, non-technical. Do not be verbose or over explain.
+- Explain what you are doing and why you are doing it in non-technical language.
 - Define technical terms in simple language when needed.
 - Assume the user may be acting as a less technical product manager.
 - Connect the dots between:
@@ -82,7 +82,7 @@ When working with the user in this repo:
   - design decisions
   - app architecture
   - concrete code changes
-- If recommending an architecture change, explain the user value, not just the engineering benefit.
+- If recommending an architecture change, explain the user value succinctly, not just the engineering benefit.
 
 ## Run And Verify
 Simple local run option:

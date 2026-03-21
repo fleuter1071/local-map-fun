@@ -297,15 +297,15 @@ input {
   position: relative;
   z-index: 1;
   width: 100%;
-  min-height: 54px;
+  min-height: 44px;
   border: 1px solid rgba(19, 103, 209, 0.12);
-  border-radius: var(--control-radius);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: var(--shadow);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: var(--shadow-soft);
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 8px 12px;
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -322,7 +322,7 @@ input {
 
 .search-state-btn.emphasized {
   border-color: rgba(19, 103, 209, 0.25);
-  box-shadow: 0 18px 42px rgba(19, 103, 209, 0.14);
+  box-shadow: 0 12px 24px rgba(19, 103, 209, 0.12);
 }
 
 .search-state-icon {
@@ -354,7 +354,7 @@ input {
 }
 
 .search-state-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 720;
   letter-spacing: -0.02em;
 }
@@ -368,14 +368,14 @@ input {
 
 .search-state-meta {
   flex: 0 0 auto;
-  padding: 0 10px;
-  min-height: 32px;
+  padding: 0 9px;
+  min-height: 28px;
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 

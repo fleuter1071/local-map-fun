@@ -27,13 +27,17 @@ const mapController = createMapController({
   defaultCenter,
   defaultZoom,
   onBackgroundMapClick: () => {
-    if (!state.activePlaceId) {
+    if (state.activePlaceId) {
+      state.activePlaceId = null;
+      state.isResultsExpanded = true;
+      syncDiscoveryUi();
       return;
     }
 
-    state.activePlaceId = null;
-    state.isResultsExpanded = true;
-    syncDiscoveryUi();
+    if (state.isResultsExpanded) {
+      state.isResultsExpanded = false;
+      syncDiscoveryUi();
+    }
   },
   onMarkerSelect: (placeId) => {
     selectPlace(placeId);
@@ -75,30 +79,20 @@ function updateAddressUi() {
 function updateSearchUi() {
   const category = getSelectedCategory();
 
-  if (category && state.searchStatus === "ready" && state.currentPlaces.length) {
+  if (!category) {
     setSearchActionVisible(refs, false);
     return;
   }
 
   setSearchActionVisible(refs, true);
 
-  if (!category) {
-    updateSearchAction(refs, {
-      title: "Choose a category",
-      subtitle: "Pick what you want to find nearby.",
-      meta: "Browse",
-      compact: false
-    });
-    return;
-  }
-
   if (state.searchStatus === "loading") {
     updateSearchAction(refs, {
       title: "Searching current area",
-      subtitle: `Looking for ${category.label.toLowerCase()} in the visible map view.`,
+      subtitle: `Looking for ${category.label.toLowerCase()} nearby.`,
       meta: "Loading",
       disabled: true,
-      compact: false
+      compact: true
     });
     return;
   }
@@ -106,21 +100,21 @@ function updateSearchUi() {
   if (state.searchStatus === "stale") {
     updateSearchAction(refs, {
       title: "Search this area",
-      subtitle: `Refresh ${category.label.toLowerCase()} for the current map view.`,
+      subtitle: `Refresh ${category.label.toLowerCase()} for this map view.`,
       meta: "Refresh",
       emphasized: true,
-      compact: false
+      compact: true
     });
     return;
   }
 
   if (state.searchStatus === "error") {
     updateSearchAction(refs, {
-      title: "Try this search again",
-      subtitle: "The places service did not respond. Try the current map area again.",
+      title: "Try again",
+      subtitle: "The places service did not respond for this area.",
       meta: "Retry",
       emphasized: true,
-      compact: false
+      compact: true
     });
     return;
   }
@@ -129,19 +123,14 @@ function updateSearchUi() {
   if (!count) {
     updateSearchAction(refs, {
       title: `No ${category.label.toLowerCase()} found`,
-      subtitle: "Move the map a little, then search this area again.",
+      subtitle: "Move the map, then search this area again.",
       meta: "Adjust",
-      compact: false
+      compact: true
     });
     return;
   }
 
-  updateSearchAction(refs, {
-    title: `${count} ${category.label.toLowerCase()} nearby`,
-    subtitle: "Open the list or move the map to refresh the area.",
-    meta: compact ? "Results" : "View",
-    compact
-  });
+  setSearchActionVisible(refs, false);
 }
 
 function updateSummaryUi() {
@@ -157,7 +146,7 @@ function updateSummaryUi() {
 
   const category = getSelectedCategory();
   if (!category) {
-    updateResultsSummary(refs, "Explore nearby", "Choose a category to begin");
+    updateResultsSummary(refs, "Explore nearby", "Search a place or choose a category");
     return;
   }
 
