@@ -1,6 +1,6 @@
 export function createMapController({ mapElementId, defaultCenter, defaultZoom, onBackgroundMapClick, onMarkerSelect, onMoveStart, onMoveEnd }) {
   const map = L.map(mapElementId, { zoomControl: false, preferCanvas: true }).setView(defaultCenter, defaultZoom);
-  L.control.zoom({ position: "bottomright" }).addTo(map);
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: "&copy; OpenStreetMap contributors"

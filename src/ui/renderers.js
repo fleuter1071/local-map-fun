@@ -56,7 +56,8 @@ export function updateContextBar(refs, eyebrow, title, subtitle) {
 }
 
 export function setContextBarVisible(refs, visible) {
-  refs.contextBar.hidden = !visible;
+  refs.contextBar.classList.toggle("is-hidden", !visible);
+  refs.contextBar.setAttribute("aria-hidden", String(!visible));
 }
 
 export function setSearchActionVisible(refs, visible) {

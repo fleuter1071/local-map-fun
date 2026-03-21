@@ -13,8 +13,13 @@ Keep this file focused on how to work in the repo. Do not use it as a feature hi
   - choose place categories
   - search the visible area for nearby places
   - browse a compact result list
-  - open a place detail sheet
+  - open place details in the shared discovery sheet
 - The current product style is mobile-first, fast, and minimal.
+- The current flow uses:
+  - a persistent locate control
+  - a temporary orientation header that collapses after engagement
+  - a search-state button that changes based on search status
+  - one bottom discovery sheet for both results and place details
 
 ## Current Architecture
 - Frontend-only application.
@@ -57,8 +62,9 @@ Core app files:
 
 ## UX Guidance
 - Preserve the current compact map-first design.
-- Keep category selection, search area action, result list, and detail sheet behavior simple and legible.
+- Keep the locate control, category selection, search-state action, and shared discovery sheet behavior simple and legible.
 - Avoid cluttering the map with too many panels or controls.
+- Preserve the current pattern where the large context header is temporary and the main utility action stays persistent.
 - Any new feature should be evaluated in terms of map clarity and tap-target quality on mobile.
 
 ## Collaboration Style For This Repo
@@ -81,12 +87,14 @@ Simple local run option:
 
 Basic manual QA areas:
 - category selection
-- `More` sheet open/close
+- temporary context header collapse after meaningful engagement
+- persistent locate control and recenter flow
+- search-state button behavior across idle, loading, stale, error, and ready states
 - `Search this area`
 - map marker rendering
-- result list expand/collapse
-- place detail sheet
-- location recenter flow
+- result summary bar expand/collapse
+- shared discovery sheet list/detail transitions
+- place detail open/back/close behavior
 
 ## Documentation Guidance
 If meaningful work is completed in this repo, add a short repo memory file later if useful.

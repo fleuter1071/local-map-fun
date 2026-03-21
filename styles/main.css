@@ -74,11 +74,6 @@ input {
   gap: 8px;
 }
 
-.top-utility-row {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .context-bar,
 .category-strip {
   display: flex;
@@ -88,8 +83,32 @@ input {
   padding: 10px 12px;
 }
 
-.context-bar[hidden] {
-  display: none !important;
+.context-bar {
+  overflow: hidden;
+  max-height: 132px;
+  opacity: 1;
+  transform: translateY(0);
+  transform-origin: top center;
+  transition:
+    max-height 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.context-bar.is-hidden {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-bottom: -8px;
+  border-color: transparent;
+  box-shadow: none;
+  pointer-events: none;
 }
 
 .context-copy {
@@ -135,7 +154,11 @@ input {
   box-shadow: var(--shadow-soft);
 }
 
-.locate-only {
+.locate-floating {
+  position: absolute;
+  right: 12px;
+  bottom: calc(var(--safe-bottom) + 104px);
+  z-index: 22;
   width: var(--control-h);
   padding: 0;
 }
@@ -663,6 +686,10 @@ input {
     right: auto;
     width: min(680px, calc(100% - 20px));
     transform: translateX(-50%);
+  }
+
+  .locate-floating {
+    right: max(18px, calc(50% - 340px));
   }
 
   .results-view,

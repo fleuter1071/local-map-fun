@@ -8,7 +8,7 @@ Users can:
 - pick place categories
 - search the visible area for nearby places
 - browse nearby results in a compact list
-- open a place detail sheet
+- open place details in the shared discovery sheet
 
 ## Run Locally
 From the repo root:
@@ -77,12 +77,14 @@ Keep entries focused on:
 ## QA Areas
 When testing manually, focus on:
 - category selection
-- `More` sheet open/close
+- temporary context header collapse after meaningful engagement
+- persistent locate control and recenter flow
+- search-state button copy and action across idle, loading, stale, error, and ready states
 - `Search this area`
 - map marker rendering
-- result list expand/collapse
-- place detail sheet
-- location recenter flow
+- result summary bar expand/collapse
+- shared discovery sheet list/detail transitions
+- place detail open/back/close behavior
 
 ## Recommended Direction
 Near-term direction:

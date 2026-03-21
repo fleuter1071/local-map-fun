@@ -21,6 +21,7 @@ import {
 
 const state = createAppState();
 const refs = createDomRefs(document);
+let pendingContextCollapseTimer = null;
 
 const mapController = createMapController({
   mapElementId: "map",
@@ -39,7 +40,6 @@ const mapController = createMapController({
     selectPlace(placeId);
   },
   onMoveStart: () => {
-    collapseContextHeader();
     if (!state.suppressMoveNotice && state.selectedCategoryId && state.searchStatus === "ready") {
       state.searchStatus = "stale";
       syncDiscoveryUi();
@@ -47,6 +47,7 @@ const mapController = createMapController({
   },
   onMoveEnd: () => {
     state.suppressMoveNotice = false;
+    scheduleContextHeaderCollapse(140);
   }
 });
 
@@ -55,9 +56,26 @@ function getSelectedCategory() {
 }
 
 function collapseContextHeader() {
+  if (pendingContextCollapseTimer) {
+    clearTimeout(pendingContextCollapseTimer);
+    pendingContextCollapseTimer = null;
+  }
+
   if (!state.isContextCollapsed) {
     state.isContextCollapsed = true;
+    updateContextUi();
   }
+}
+
+function scheduleContextHeaderCollapse(delayMs) {
+  if (state.isContextCollapsed || pendingContextCollapseTimer) {
+    return;
+  }
+
+  pendingContextCollapseTimer = window.setTimeout(() => {
+    pendingContextCollapseTimer = null;
+    collapseContextHeader();
+  }, delayMs);
 }
 
 function refreshCategoryUi() {

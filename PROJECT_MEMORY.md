@@ -205,3 +205,80 @@ Value provided: Reduces top-of-screen clutter on small mobile screens, preserves
 1. Push the temporary-header update to production now that mobile browser QA has passed.
 2. Confirm the live production build preserves the lighter top-of-screen layout on a real phone.
 3. Decide whether the next pass should tune copy density further or shift to reliability work.
+
+## Date/time
+2026-03-20 11:20:00 -04:00
+
+## Feature name, description, and value provided
+Feature name: Repo Docs Alignment For Guided Discovery Flow
+Description: Updated repo guidance docs so they describe the current map app behavior instead of the older pre-redesign interaction model. The docs now reference the persistent locate control, temporary orientation header, search-state button, and shared discovery sheet flow.
+Value provided: Reduces future session confusion, keeps QA guidance aligned with the live UI, and makes repo onboarding more reliable for product and engineering work.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\README.md
+- C:\Users\dougs\local-map-fun\AGENTS.md
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- No product architecture changed.
+- Treated the doc mismatch as repo maintenance work so future sessions do not reason from removed UI patterns.
+
+## Assumptions
+- The current guided discovery flow is the intended baseline for upcoming work.
+- Repo docs should describe the current live interaction model, not earlier intermediate states.
+
+## Known limitations
+- This update aligns docs with the current UI flow but does not add automated validation.
+- Runtime reliability risks around direct browser-to-Overpass requests remain unchanged.
+
+## Key learnings that you can bring with you to future sessions
+- The repo recently moved fast on UX simplification, so docs can drift quickly if not refreshed after each UI pass.
+- The current mental model is a map-first flow with one shared bottom sheet, not multiple competing panels.
+
+## Remaining TODOs
+- Refresh any future product notes promptly when the guided flow changes again.
+- Consider a short release checklist if doc drift keeps recurring after UI work.
+
+## Next steps
+1. Use the updated QA checklist for future manual validation passes.
+2. Keep the repo docs synchronized with any further map-flow changes.
+3. Shift back to product or reliability work once the doc cleanup is committed.
+
+## Date/time
+2026-03-20 11:45:00 -04:00
+
+## Feature name, description, and value provided
+Feature name: Bottom-Right Locate Control + Top-Slot Category Recovery
+Description: Moved the locate action out of the crowded top stack into a floating bottom-right map control and let the category chips rise into the reclaimed top slot once the temporary orientation header collapses. Also moved Leaflet zoom controls to the bottom-left so the map utilities do not compete for the same corner.
+Value provided: Preserves more vertical map space after orientation, makes the persistent utility action easier to reach on mobile, and reduces top-of-screen clutter without removing category access.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\index.html
+- C:\Users\dougs\local-map-fun\styles\main.css
+- C:\Users\dougs\local-map-fun\src\mapController.js
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Kept the existing UI state model and changed layout placement rather than adding new interaction states.
+- Split persistent map utilities across bottom corners so locate and zoom controls remain visually distinct.
+
+## Assumptions
+- The floating locate action should remain available even while the discovery sheet is collapsed.
+- The category rail is important enough to stay immediately accessible after orientation copy disappears.
+
+## Known limitations
+- The locate control uses a fixed offset above the collapsed sheet and may need tuning if the sheet peek height changes later.
+- This layout pass improves spacing but does not yet add animated transitions for the collapsing header.
+
+## Key learnings that you can bring with you to future sessions
+- The top stack works better when it focuses on category and search context rather than persistent utility controls.
+- Reclaiming the header slot after orientation is a strong way to protect map space without hiding core actions.
+
+## Remaining TODOs
+- Validate the new control placement on a real phone and on smaller mobile browser chrome states.
+- Tune the floating locate offset later if sheet height or bottom safe-area behavior changes.
+
+## Next steps
+1. Run a manual mobile QA pass on locate reachability, chip positioning, and bottom-corner control overlap.
+2. Confirm the new bottom-right control does not fight the discovery sheet during list/detail browsing.
+3. Refine transitions later if the header collapse still feels too abrupt in browser testing.
