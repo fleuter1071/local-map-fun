@@ -14,6 +14,7 @@
   --safe-top: max(12px, env(safe-area-inset-top));
   --safe-bottom: max(14px, env(safe-area-inset-bottom));
   --control-h: 44px;
+  --locate-offset-bottom: 136px;
 }
 
 * {
@@ -157,7 +158,7 @@ input {
 .locate-floating {
   position: absolute;
   right: 12px;
-  bottom: calc(var(--safe-bottom) + 104px);
+  bottom: calc(var(--safe-bottom) + var(--locate-offset-bottom));
   z-index: 22;
   width: var(--control-h);
   padding: 0;
