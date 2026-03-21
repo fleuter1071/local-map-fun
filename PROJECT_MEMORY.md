@@ -376,3 +376,41 @@ Value provided: Makes place-name search more trustworthy, reduces surprising jum
 1. Test queries like business names, landmarks, and neighborhood names to verify the picker appears when expected.
 2. Confirm the picker, destination marker, and category-refresh flow all work together cleanly on mobile.
 3. Decide later whether the picker needs a cancel row or richer distance/context hints.
+
+## Date/time
+2026-03-21 11:05:00 -04:00
+
+## Feature name, description, and value provided
+Feature name: Ambiguous Search Picker Refinements
+Description: Refined the new ambiguous search flow so repeating the same ambiguous place-name query consistently brings the picker back instead of overcommitting to a previously selected result. Also changed picker distance ranking to use real distance from the current map center rather than device location or a rough approximation.
+Value provided: Makes repeated ambiguous searches more predictable, keeps ranking aligned with the visible map context, and improves trust in the picker ordering.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\src\main.js
+- C:\Users\dougs\local-map-fun\src\services\geocoding.js
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Added a broader fallback geocode pass for ambiguous queries when the locally biased request returns only one result.
+- Standardized candidate ranking on actual distance from the current map center.
+
+## Assumptions
+- Repeating the same ambiguous search should be treated as a fresh request, not as confirmation of the last selected result.
+- For this app, the visible map context is a better ranking anchor than device location.
+
+## Known limitations
+- Candidate quality still depends on Nominatim result quality and ordering.
+- Ambiguous-query detection is still heuristic-based.
+
+## Key learnings that you can bring with you to future sessions
+- Local biasing improves relevance, but on ambiguous names it can become too aggressive unless a broader fallback is available.
+- Map-centered ranking is the clearest mental model for this app’s search-result picker.
+
+## Remaining TODOs
+- Validate repeated ambiguous searches on mobile with several business-name examples.
+- Revisit ambiguity detection if it proves too broad or too narrow in real testing.
+
+## Next steps
+1. Test repeated searches like `Angelo's` to confirm the picker reappears consistently.
+2. Spot-check that local map context is clearly reflected in picker ordering.
+3. Keep tuning only if real-world searches show ranking surprises.
