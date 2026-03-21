@@ -28,12 +28,13 @@ export function formatDistanceMeters(meters) {
   if (meters == null || Number.isNaN(meters)) {
     return "";
   }
-  if (meters < 1000) {
-    return `${Math.round(meters)} m away`;
+  if (meters < 402.336) {
+    const feet = meters * 3.28084;
+    return `${Math.round(feet)} ft away`;
   }
 
-  const kilometers = meters / 1000;
-  return `${kilometers.toFixed(kilometers < 10 ? 1 : 0)} km away`;
+  const miles = meters / 1609.34;
+  return `${miles.toFixed(miles < 10 ? 1 : 0)} mi away`;
 }
 
 export function getDistanceMeters(start, end) {
