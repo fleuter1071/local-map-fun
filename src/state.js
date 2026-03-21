@@ -8,6 +8,7 @@ export function createAppState() {
     addressSearchStatus: "idle",
     addressSearchMessage: "",
     lastGeocodedPlace: null,
+    geocodeCandidates: [],
     isResultsExpanded: false,
     suppressMoveNotice: true,
     activeFetchController: null,

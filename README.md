@@ -49,7 +49,7 @@ This repo was recently refactored from a single-file prototype into a modular fr
 - `src/services/geolocation.js`
   - browser geolocation access
 - `src/services/geocoding.js`
-  - address and place lookup for map repositioning
+  - address and place lookup for map repositioning and ambiguous-match selection
 - `src/services/places.js`
   - Overpass query building, fetches, and place normalization
 - `src/ui/renderers.js`
@@ -80,6 +80,7 @@ Keep entries focused on:
 ## QA Areas
 When testing manually, focus on:
 - address/place search success, failure, and no-result states
+- ambiguous place-name search and multi-result picker behavior
 - map fly-to after searched destination
 - category selection
 - temporary destination marker behavior

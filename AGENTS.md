@@ -40,7 +40,7 @@ Core app files:
 - `src/state.js`: in-memory app state
 - `src/mapController.js`: Leaflet setup and marker behavior
 - `src/services/geolocation.js`: browser geolocation access
-- `src/services/geocoding.js`: address/place lookup for moving the map
+- `src/services/geocoding.js`: address/place lookup, result biasing, and ambiguous-match selection
 - `src/services/places.js`: Overpass query building, fetches, and place normalization
 - `src/ui/renderers.js`: chips, sheets, result list, and place detail rendering
 - `src/utils.js`: shared helpers
@@ -60,6 +60,7 @@ Core app files:
 ## Reliability Guidance
 - Treat Overpass API as an unstable dependency.
 - Treat free geocoding as a best-effort dependency with rate limits and occasional misses.
+- For ambiguous place-name queries, prefer showing a short candidate picker over auto-jumping to a weak global match.
 - Keep request cancellation behavior when starting a new search.
 - Prefer explicit loading, empty, and error states.
 - If adding new data providers later, normalize all results into a stable internal `Place` shape before rendering.
@@ -91,6 +92,7 @@ Simple local run option:
 
 Basic manual QA areas:
 - address/place search success, failure, and no-result handling
+- ambiguous place-name search and candidate-picker selection
 - map fly-to after searched destination
 - category selection
 - temporary destination marker behavior

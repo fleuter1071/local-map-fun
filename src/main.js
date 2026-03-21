@@ -8,6 +8,7 @@ import {
   clearPlaceDetails,
   createDomRefs,
   renderChips,
+  renderGeocodeCandidates,
   renderPlaceDetails,
   renderResultsError,
   renderResultsList,
@@ -79,6 +80,11 @@ function updateAddressUi() {
 function updateSearchUi() {
   const category = getSelectedCategory();
 
+  if (state.geocodeCandidates.length) {
+    setSearchActionVisible(refs, false);
+    return;
+  }
+
   if (!category) {
     setSearchActionVisible(refs, false);
     return;
@@ -134,6 +140,11 @@ function updateSearchUi() {
 }
 
 function updateSummaryUi() {
+  if (state.geocodeCandidates.length) {
+    updateResultsSummary(refs, "Choose a match", `Multiple places match "${state.addressQuery.trim()}"`);
+    return;
+  }
+
   const activePlace = findPlaceById(state.activePlaceId);
   if (activePlace) {
     updateResultsSummary(
@@ -186,6 +197,9 @@ function syncDiscoveryUi() {
 
   if (activePlace) {
     renderPlaceDetails(refs, activePlace);
+  } else if (state.geocodeCandidates.length) {
+    clearPlaceDetails(refs);
+    renderGeocodeCandidates(refs.resultsList, state.geocodeCandidates, (candidateId) => selectGeocodeCandidate(candidateId));
   } else {
     clearPlaceDetails(refs);
   }
@@ -215,8 +229,46 @@ function selectPlace(placeId) {
 function clearResults() {
   state.currentPlaces = [];
   state.activePlaceId = null;
+  state.geocodeCandidates = [];
   mapController.clearResults();
   renderResultsList(refs.resultsList, [], () => {});
+}
+
+function formatCandidateDistance(meters) {
+  if (meters == null) {
+    return "";
+  }
+  if (meters < 1500) {
+    return "Near current map view";
+  }
+  const miles = meters / 1609.34;
+  return `${miles.toFixed(miles < 10 ? 1 : 0)} mi away`;
+}
+
+function looksAmbiguousQuery(query) {
+  const text = String(query || "").trim();
+  return !/[0-9,]/.test(text);
+}
+
+function selectGeocodeCandidate(candidateId) {
+  const candidate = state.geocodeCandidates.find((item) => item.id === candidateId);
+  if (!candidate) {
+    return;
+  }
+
+  state.geocodeCandidates = [];
+  state.lastGeocodedPlace = candidate;
+  state.addressSearchStatus = "ready";
+  state.addressSearchMessage = candidate.label;
+  state.suppressMoveNotice = true;
+  mapController.setDestination(candidate);
+  mapController.flyToDestination(candidate);
+
+  if (state.selectedCategoryId) {
+    state.searchStatus = "stale";
+  }
+
+  syncDiscoveryUi();
 }
 
 async function runCategorySearch(category) {
@@ -284,23 +336,59 @@ async function runAddressSearch() {
   state.activeGeocodeController = controller;
   state.addressSearchStatus = "loading";
   state.addressSearchMessage = "";
+  state.geocodeCandidates = [];
   syncDiscoveryUi();
 
   try {
-    const place = await geocodeQuery(query, { signal: controller.signal });
+    const ambiguousQuery = looksAmbiguousQuery(query);
+    let candidates = await geocodeQuery(query, {
+      signal: controller.signal,
+      limit: 5,
+      viewbox: mapController.getVisibleBounds()
+    });
     if (state.activeGeocodeController !== controller) {
       return;
     }
 
-    if (!place) {
+    if (ambiguousQuery && candidates.length <= 1) {
+      candidates = await geocodeQuery(query, {
+        signal: controller.signal,
+        limit: 5
+      });
+      if (state.activeGeocodeController !== controller) {
+        return;
+      }
+    }
+
+    if (!candidates.length) {
       state.lastGeocodedPlace = null;
       state.addressSearchStatus = "no-result";
       state.addressSearchMessage = "No matching address or place found.";
+      state.geocodeCandidates = [];
       mapController.clearDestination();
       syncDiscoveryUi();
       return;
     }
 
+    const enrichedCandidates = candidates.map((candidate) => ({
+      ...candidate,
+      distanceText: formatCandidateDistance(candidate.distanceMeters)
+    }));
+
+    if (enrichedCandidates.length > 1 && ambiguousQuery) {
+      state.lastGeocodedPlace = null;
+      state.addressSearchStatus = "ready";
+      state.addressSearchMessage = `Choose one of ${enrichedCandidates.length} matches below.`;
+      state.geocodeCandidates = enrichedCandidates;
+      state.activePlaceId = null;
+      state.isResultsExpanded = true;
+      mapController.clearDestination();
+      syncDiscoveryUi();
+      return;
+    }
+
+    const place = enrichedCandidates[0];
+    state.geocodeCandidates = [];
     state.lastGeocodedPlace = place;
     state.addressSearchStatus = "ready";
     state.addressSearchMessage = place.label;
@@ -319,6 +407,7 @@ async function runAddressSearch() {
     state.lastGeocodedPlace = null;
     state.addressSearchStatus = "error";
     state.addressSearchMessage = "Address search did not respond. Try again.";
+    state.geocodeCandidates = [];
   } finally {
     if (state.activeGeocodeController === controller) {
       state.activeGeocodeController = null;
@@ -336,8 +425,8 @@ function setSelectedCategory(categoryId, shouldSearch = false) {
   syncDiscoveryUi();
 
   const category = getCategoryById(categoryId);
-    if (shouldSearch && category) {
-      runCategorySearch(category);
+  if (shouldSearch && category) {
+    runCategorySearch(category);
   }
 }
 
@@ -361,6 +450,12 @@ async function syncUserLocation({ recenter = false, initial = false } = {}) {
 }
 
 refs.resultBar.addEventListener("click", () => {
+  if (state.geocodeCandidates.length) {
+    state.isResultsExpanded = !state.isResultsExpanded;
+    syncDiscoveryUi();
+    return;
+  }
+
   if (state.activePlaceId) {
     state.activePlaceId = null;
     state.isResultsExpanded = true;
@@ -435,6 +530,7 @@ refs.addressClearBtn.addEventListener("click", () => {
   state.addressSearchStatus = "idle";
   state.addressSearchMessage = "";
   state.lastGeocodedPlace = null;
+  state.geocodeCandidates = [];
   if (state.activeGeocodeController) {
     state.activeGeocodeController.abort();
     state.activeGeocodeController = null;

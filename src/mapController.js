@@ -34,6 +34,15 @@ export function createMapController({ mapElementId, defaultCenter, defaultZoom, 
       const center = map.getCenter();
       return { lat: center.lat, lng: center.lng };
     },
+    getVisibleBounds() {
+      const bounds = map.getBounds();
+      return {
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest()
+      };
+    },
     setResultPlaces(places) {
       resultLayer.clearLayers();
       places.forEach((place) => {

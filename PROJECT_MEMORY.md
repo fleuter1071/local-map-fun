@@ -332,3 +332,47 @@ Value provided: Makes the app feel more like a familiar map tool, lets users exp
 1. Do a browser smoke test of address search success, failure, and no-result cases.
 2. Validate that selected categories correctly transition to `Search this area` after a destination search.
 3. Decide whether to ship this directly or tune spacing and copy after mobile testing.
+
+## Date/time
+2026-03-21 10:15:00 -04:00
+
+## Feature name, description, and value provided
+Feature name: Ambiguous Search Result Picker
+Description: Improved address/place search so ambiguous business-name queries can return a short in-app picker instead of auto-jumping to a single weak global match. The geocoder now requests multiple candidates, biases results toward the visible map area, and uses the existing bottom sheet as a compact "Choose a match" picker when needed.
+Value provided: Makes place-name search more trustworthy, reduces surprising jumps to faraway results, and keeps ambiguous searches inside the existing map-first interaction model.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\src\services\geocoding.js
+- C:\Users\dougs\local-map-fun\src\state.js
+- C:\Users\dougs\local-map-fun\src\mapController.js
+- C:\Users\dougs\local-map-fun\src\ui\renderers.js
+- C:\Users\dougs\local-map-fun\src\main.js
+- C:\Users\dougs\local-map-fun\README.md
+- C:\Users\dougs\local-map-fun\AGENTS.md
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Kept submit-to-search instead of introducing live autocomplete.
+- Reused the existing bottom discovery sheet for ambiguous search result selection instead of adding a new modal or dropdown.
+- Biased geocoder requests to the visible map bounds to improve local relevance without hard-restricting results.
+
+## Assumptions
+- Ambiguous place-name searches should favor nearby candidates but still allow non-local exact searches when the query is specific enough.
+- A short picker of up to five candidates is sufficient for the current app scope.
+
+## Known limitations
+- Result biasing uses the current map area as a hint, not a hard geographic filter.
+- The picker does not yet include richer ranking signals beyond Nominatim ordering plus simple local-distance bias.
+
+## Key learnings that you can bring with you to future sessions
+- The biggest weakness of free geocoding for place names is not missing data but overconfident single-result selection.
+- Reusing the bottom sheet for ambiguous search choices keeps the interaction lightweight and consistent with the rest of the app.
+
+## Remaining TODOs
+- Validate ambiguous place-name searches on a real device with several local and non-local examples.
+- Revisit ranking heuristics later if nearby matches still lose too often to globally prominent names.
+
+## Next steps
+1. Test queries like business names, landmarks, and neighborhood names to verify the picker appears when expected.
+2. Confirm the picker, destination marker, and category-refresh flow all work together cleanly on mobile.
+3. Decide later whether the picker needs a cancel row or richer distance/context hints.

@@ -31,6 +31,34 @@ export function createDomRefs(document) {
   };
 }
 
+function createResultRow({ title, metaText, ariaLabel, onClick }) {
+  const row = document.createElement("button");
+  row.className = "result-row";
+  row.type = "button";
+  row.setAttribute("aria-label", ariaLabel);
+  row.addEventListener("click", onClick);
+
+  const main = document.createElement("div");
+  main.className = "result-main";
+
+  const name = document.createElement("div");
+  name.className = "result-name";
+  name.textContent = title;
+
+  const meta = document.createElement("div");
+  meta.className = "result-meta";
+  meta.textContent = metaText;
+
+  const affordance = document.createElement("div");
+  affordance.className = "result-affordance";
+  affordance.setAttribute("aria-hidden", "true");
+  affordance.textContent = "›";
+
+  main.append(name, meta);
+  row.append(main, affordance);
+  return row;
+}
+
 function createChip(label, id) {
   const button = document.createElement("button");
   button.className = "chip";
@@ -104,31 +132,28 @@ export function renderResultsList(resultsList, places, onSelectPlace) {
   }
 
   places.forEach((place) => {
-    const row = document.createElement("button");
-    row.className = "result-row";
-    row.type = "button";
-    row.setAttribute("aria-label", `Open ${place.name || "place"} on map`);
-    row.addEventListener("click", () => onSelectPlace(place.id));
-
-    const main = document.createElement("div");
-    main.className = "result-main";
-
-    const name = document.createElement("div");
-    name.className = "result-name";
-    name.textContent = place.name || "Unnamed place";
-
-    const meta = document.createElement("div");
-    meta.className = "result-meta";
     const metaParts = [place.typeLabel, place.distanceText].filter(Boolean);
-    meta.textContent = metaParts.join(" · ") || "Nearby place";
+    const row = createResultRow({
+      title: place.name || "Unnamed place",
+      metaText: metaParts.join(" · ") || "Nearby place",
+      ariaLabel: `Open ${place.name || "place"} on map`,
+      onClick: () => onSelectPlace(place.id)
+    });
+    resultsList.appendChild(row);
+  });
+}
 
-    const affordance = document.createElement("div");
-    affordance.className = "result-affordance";
-    affordance.setAttribute("aria-hidden", "true");
-    affordance.textContent = "›";
+export function renderGeocodeCandidates(resultsList, candidates, onSelectCandidate) {
+  resultsList.innerHTML = "";
 
-    main.append(name, meta);
-    row.append(main, affordance);
+  candidates.forEach((candidate) => {
+    const metaParts = [candidate.addressSummary, candidate.distanceText].filter(Boolean);
+    const row = createResultRow({
+      title: candidate.shortLabel || candidate.label,
+      metaText: metaParts.join(" · ") || candidate.label,
+      ariaLabel: `Choose ${candidate.shortLabel || candidate.label}`,
+      onClick: () => onSelectCandidate(candidate.id)
+    });
     resultsList.appendChild(row);
   });
 }
