@@ -5,6 +5,7 @@ A lightweight local discovery map app built for fast, mobile-friendly exploratio
 Users can:
 - view a map
 - use their current location
+- search an address or place and jump the map there
 - pick place categories
 - search the visible area for nearby places
 - browse nearby results in a compact list
@@ -47,6 +48,8 @@ This repo was recently refactored from a single-file prototype into a modular fr
   - Leaflet setup and marker behavior
 - `src/services/geolocation.js`
   - browser geolocation access
+- `src/services/geocoding.js`
+  - address and place lookup for map repositioning
 - `src/services/places.js`
   - Overpass query building, fetches, and place normalization
 - `src/ui/renderers.js`
@@ -76,8 +79,10 @@ Keep entries focused on:
 
 ## QA Areas
 When testing manually, focus on:
+- address/place search success, failure, and no-result states
+- map fly-to after searched destination
 - category selection
-- temporary context header collapse after meaningful engagement
+- temporary destination marker behavior
 - persistent locate control and recenter flow
 - search-state button copy and action across idle, loading, stale, error, and ready states
 - `Search this area`

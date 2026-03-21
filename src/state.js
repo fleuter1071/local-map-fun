@@ -4,10 +4,14 @@ export function createAppState() {
     userLatLng: null,
     currentPlaces: [],
     activePlaceId: null,
+    addressQuery: "",
+    addressSearchStatus: "idle",
+    addressSearchMessage: "",
+    lastGeocodedPlace: null,
     isResultsExpanded: false,
-    isContextCollapsed: false,
     suppressMoveNotice: true,
     activeFetchController: null,
+    activeGeocodeController: null,
     searchStatus: "idle"
   };
 }

@@ -1,5 +1,6 @@
 import { categories, defaultCenter, defaultZoom, getCategoryById, searchRadiusMeters } from "./config.js";
 import { createMapController } from "./mapController.js";
+import { geocodeQuery } from "./services/geocoding.js";
 import { fetchPlacesForCategory } from "./services/places.js";
 import { requestCurrentPosition } from "./services/geolocation.js";
 import { createAppState } from "./state.js";
@@ -10,18 +11,16 @@ import {
   renderPlaceDetails,
   renderResultsError,
   renderResultsList,
-  setContextBarVisible,
   setDetailMode,
   setResultsExpanded,
   setSearchActionVisible,
-  updateContextBar,
+  updateAddressSearch,
   updateResultsSummary,
   updateSearchAction
 } from "./ui/renderers.js";
 
 const state = createAppState();
 const refs = createDomRefs(document);
-let pendingContextCollapseTimer = null;
 
 const mapController = createMapController({
   mapElementId: "map",
@@ -47,35 +46,11 @@ const mapController = createMapController({
   },
   onMoveEnd: () => {
     state.suppressMoveNotice = false;
-    scheduleContextHeaderCollapse(140);
   }
 });
 
 function getSelectedCategory() {
   return getCategoryById(state.selectedCategoryId);
-}
-
-function collapseContextHeader() {
-  if (pendingContextCollapseTimer) {
-    clearTimeout(pendingContextCollapseTimer);
-    pendingContextCollapseTimer = null;
-  }
-
-  if (!state.isContextCollapsed) {
-    state.isContextCollapsed = true;
-    updateContextUi();
-  }
-}
-
-function scheduleContextHeaderCollapse(delayMs) {
-  if (state.isContextCollapsed || pendingContextCollapseTimer) {
-    return;
-  }
-
-  pendingContextCollapseTimer = window.setTimeout(() => {
-    pendingContextCollapseTimer = null;
-    collapseContextHeader();
-  }, delayMs);
 }
 
 function refreshCategoryUi() {
@@ -87,55 +62,18 @@ function refreshCategoryUi() {
   });
 }
 
-function updateContextUi() {
-  const hasLocation = Boolean(state.userLatLng);
-  const eyebrow = hasLocation ? "Near your location" : "Map view";
-  const title = hasLocation ? "Explore nearby" : "Explore this area";
-  const shouldShow = !state.isContextCollapsed && (!state.selectedCategoryId || state.searchStatus !== "ready" || !state.currentPlaces.length);
-
-  setContextBarVisible(refs, shouldShow);
-
-  if (!state.selectedCategoryId) {
-    updateContextBar(
-      refs,
-      eyebrow,
-      title,
-      hasLocation ? "Choose a category to see what is nearby." : "Use your location or choose a category to begin."
-    );
-    return;
-  }
-
-  if (state.searchStatus === "loading") {
-    updateContextBar(
-      refs,
-      eyebrow,
-      title,
-      "Searching the current map area."
-    );
-    return;
-  }
-
-  if (state.searchStatus === "stale") {
-    updateContextBar(refs, eyebrow, title, "Move the map or refresh the current area.");
-    return;
-  }
-
-  if (state.searchStatus === "error") {
-    updateContextBar(refs, eyebrow, title, "Try the search again or choose another category.");
-    return;
-  }
-
-  if (!state.currentPlaces.length) {
-    updateContextBar(refs, eyebrow, title, "Move the map or choose another category.");
-    return;
-  }
-
-  updateContextBar(refs, eyebrow, title, "Choose a place or move the map to search again.");
+function updateAddressUi() {
+  const messageTone = state.addressSearchStatus === "error" ? "error" : state.addressSearchStatus === "no-result" ? "muted" : "neutral";
+  updateAddressSearch(refs, {
+    value: state.addressQuery,
+    loading: state.addressSearchStatus === "loading",
+    message: state.addressSearchMessage,
+    messageTone
+  });
 }
 
 function updateSearchUi() {
   const category = getSelectedCategory();
-  const compact = state.isResultsExpanded || Boolean(state.activePlaceId);
 
   if (category && state.searchStatus === "ready" && state.currentPlaces.length) {
     setSearchActionVisible(refs, false);
@@ -149,7 +87,7 @@ function updateSearchUi() {
       title: "Choose a category",
       subtitle: "Pick what you want to find nearby.",
       meta: "Browse",
-      compact
+      compact: false
     });
     return;
   }
@@ -263,7 +201,7 @@ function syncDiscoveryUi() {
     clearPlaceDetails(refs);
   }
 
-  updateContextUi();
+  updateAddressUi();
   updateSearchUi();
   updateSummaryUi();
 }
@@ -281,7 +219,6 @@ function selectPlace(placeId) {
   state.activePlaceId = place.id;
   state.isResultsExpanded = true;
   state.suppressMoveNotice = true;
-  collapseContextHeader();
   mapController.flyToPlace(place);
   syncDiscoveryUi();
 }
@@ -341,18 +278,77 @@ async function runCategorySearch(category) {
   }
 }
 
+async function runAddressSearch() {
+  const query = state.addressQuery.trim();
+  if (!query) {
+    state.addressSearchStatus = "error";
+    state.addressSearchMessage = "Enter an address or place to search.";
+    syncDiscoveryUi();
+    return;
+  }
+
+  if (state.activeGeocodeController) {
+    state.activeGeocodeController.abort();
+  }
+
+  const controller = new AbortController();
+  state.activeGeocodeController = controller;
+  state.addressSearchStatus = "loading";
+  state.addressSearchMessage = "";
+  syncDiscoveryUi();
+
+  try {
+    const place = await geocodeQuery(query, { signal: controller.signal });
+    if (state.activeGeocodeController !== controller) {
+      return;
+    }
+
+    if (!place) {
+      state.lastGeocodedPlace = null;
+      state.addressSearchStatus = "no-result";
+      state.addressSearchMessage = "No matching address or place found.";
+      mapController.clearDestination();
+      syncDiscoveryUi();
+      return;
+    }
+
+    state.lastGeocodedPlace = place;
+    state.addressSearchStatus = "ready";
+    state.addressSearchMessage = place.label;
+    state.suppressMoveNotice = true;
+    mapController.setDestination(place);
+    mapController.flyToDestination(place);
+
+    if (state.selectedCategoryId) {
+      state.searchStatus = "stale";
+    }
+  } catch (error) {
+    if (error.name === "AbortError") {
+      return;
+    }
+
+    state.lastGeocodedPlace = null;
+    state.addressSearchStatus = "error";
+    state.addressSearchMessage = "Address search did not respond. Try again.";
+  } finally {
+    if (state.activeGeocodeController === controller) {
+      state.activeGeocodeController = null;
+    }
+    syncDiscoveryUi();
+  }
+}
+
 function setSelectedCategory(categoryId, shouldSearch = false) {
   state.selectedCategoryId = categoryId;
   state.activePlaceId = null;
   state.isResultsExpanded = false;
   state.searchStatus = "stale";
-  collapseContextHeader();
   refreshCategoryUi();
   syncDiscoveryUi();
 
   const category = getCategoryById(categoryId);
-  if (shouldSearch && category) {
-    runCategorySearch(category);
+    if (shouldSearch && category) {
+      runCategorySearch(category);
   }
 }
 
@@ -369,14 +365,13 @@ async function syncUserLocation({ recenter = false, initial = false } = {}) {
       mapController.flyToCoordinates(latitude, longitude, hadLocation ? 0.5 : 0.35);
     }
 
-    updateContextUi();
+    updateAddressUi();
   } catch (error) {
-    updateContextUi();
+    updateAddressUi();
   }
 }
 
 refs.resultBar.addEventListener("click", () => {
-  collapseContextHeader();
   if (state.activePlaceId) {
     state.activePlaceId = null;
     state.isResultsExpanded = true;
@@ -393,7 +388,6 @@ refs.resultBar.addEventListener("click", () => {
 });
 
 refs.searchActionBtn.addEventListener("click", () => {
-  collapseContextHeader();
   const category = getSelectedCategory();
   if (!category || state.searchStatus === "loading") {
     return;
@@ -414,14 +408,12 @@ refs.searchActionBtn.addEventListener("click", () => {
 });
 
 refs.detailBackBtn.addEventListener("click", () => {
-  collapseContextHeader();
   state.activePlaceId = null;
   state.isResultsExpanded = true;
   syncDiscoveryUi();
 });
 
 refs.detailCloseBtn.addEventListener("click", () => {
-  collapseContextHeader();
   state.activePlaceId = null;
   state.isResultsExpanded = false;
   syncDiscoveryUi();
@@ -429,7 +421,6 @@ refs.detailCloseBtn.addEventListener("click", () => {
 
 refs.locateBtn.addEventListener("click", async () => {
   if (state.userLatLng) {
-    collapseContextHeader();
     state.suppressMoveNotice = true;
     mapController.flyToUserLocation(state.userLatLng);
     mapController.openUserPopup();
@@ -439,8 +430,38 @@ refs.locateBtn.addEventListener("click", async () => {
   await syncUserLocation({ recenter: true });
 });
 
+refs.addressSearchInput.addEventListener("input", (event) => {
+  state.addressQuery = event.target.value;
+  if (state.addressSearchStatus !== "loading") {
+    state.addressSearchStatus = "idle";
+    state.addressSearchMessage = "";
+    syncDiscoveryUi();
+  } else {
+    updateAddressUi();
+  }
+});
+
+refs.addressClearBtn.addEventListener("click", () => {
+  state.addressQuery = "";
+  state.addressSearchStatus = "idle";
+  state.addressSearchMessage = "";
+  state.lastGeocodedPlace = null;
+  if (state.activeGeocodeController) {
+    state.activeGeocodeController.abort();
+    state.activeGeocodeController = null;
+  }
+  mapController.clearDestination();
+  syncDiscoveryUi();
+  refs.addressSearchInput.focus();
+});
+
+refs.addressSearchForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  runAddressSearch();
+});
+
 refreshCategoryUi();
-updateContextUi();
+updateAddressUi();
 clearResults();
 syncDiscoveryUi();
 setResultsExpanded(refs, false);

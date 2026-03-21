@@ -4,10 +4,12 @@ export function createDomRefs(document) {
   return {
     chipRail: document.getElementById("chipRail"),
     locateBtn: document.getElementById("locateBtn"),
-    contextBar: document.getElementById("contextBar"),
-    contextEyebrow: document.getElementById("contextEyebrow"),
-    contextTitle: document.getElementById("contextTitle"),
-    contextSub: document.getElementById("contextSub"),
+    addressSearchForm: document.getElementById("addressSearchForm"),
+    addressSearchInput: document.getElementById("addressSearchInput"),
+    addressClearBtn: document.getElementById("addressClearBtn"),
+    addressSubmitBtn: document.getElementById("addressSubmitBtn"),
+    addressSubmitSpinner: document.getElementById("addressSubmitSpinner"),
+    addressSearchStatus: document.getElementById("addressSearchStatus"),
     searchActionBtn: document.getElementById("searchActionBtn"),
     searchActionTitle: document.getElementById("searchActionTitle"),
     searchActionSub: document.getElementById("searchActionSub"),
@@ -49,15 +51,15 @@ export function renderChips({ chipRail, categories, selectedCategoryId, onSelect
   });
 }
 
-export function updateContextBar(refs, eyebrow, title, subtitle) {
-  refs.contextEyebrow.textContent = eyebrow;
-  refs.contextTitle.textContent = title;
-  refs.contextSub.textContent = subtitle;
-}
-
-export function setContextBarVisible(refs, visible) {
-  refs.contextBar.classList.toggle("is-hidden", !visible);
-  refs.contextBar.setAttribute("aria-hidden", String(!visible));
+export function updateAddressSearch(refs, { value, loading = false, message = "", messageTone = "neutral" }) {
+  refs.addressSearchInput.value = value;
+  refs.addressClearBtn.hidden = !value;
+  refs.addressSearchForm.classList.toggle("is-loading", loading);
+  refs.addressSearchInput.disabled = loading;
+  refs.addressSubmitBtn.disabled = loading;
+  refs.addressSearchStatus.hidden = !message;
+  refs.addressSearchStatus.textContent = message;
+  refs.addressSearchStatus.dataset.tone = message ? messageTone : "";
 }
 
 export function setSearchActionVisible(refs, visible) {

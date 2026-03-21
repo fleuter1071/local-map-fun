@@ -10,14 +10,16 @@ Keep this file focused on how to work in the repo. Do not use it as a feature hi
 - Users can:
   - view a map
   - use their current location
+  - search an address or place and move the map there
   - choose place categories
   - search the visible area for nearby places
   - browse a compact result list
   - open place details in the shared discovery sheet
 - The current product style is mobile-first, fast, and minimal.
 - The current flow uses:
+  - a top address/place search bar
   - a persistent locate control
-  - a temporary orientation header that collapses after engagement
+  - a category strip directly below the search bar
   - a search-state button that changes based on search status
   - one bottom discovery sheet for both results and place details
 
@@ -38,6 +40,7 @@ Core app files:
 - `src/state.js`: in-memory app state
 - `src/mapController.js`: Leaflet setup and marker behavior
 - `src/services/geolocation.js`: browser geolocation access
+- `src/services/geocoding.js`: address/place lookup for moving the map
 - `src/services/places.js`: Overpass query building, fetches, and place normalization
 - `src/ui/renderers.js`: chips, sheets, result list, and place detail rendering
 - `src/utils.js`: shared helpers
@@ -56,15 +59,16 @@ Core app files:
 
 ## Reliability Guidance
 - Treat Overpass API as an unstable dependency.
+- Treat free geocoding as a best-effort dependency with rate limits and occasional misses.
 - Keep request cancellation behavior when starting a new search.
 - Prefer explicit loading, empty, and error states.
 - If adding new data providers later, normalize all results into a stable internal `Place` shape before rendering.
 
 ## UX Guidance
 - Preserve the current compact map-first design.
-- Keep the locate control, category selection, search-state action, and shared discovery sheet behavior simple and legible.
+- Keep the address search bar, locate control, category selection, search-state action, and shared discovery sheet behavior simple and legible.
 - Avoid cluttering the map with too many panels or controls.
-- Preserve the current pattern where the large context header is temporary and the main utility action stays persistent.
+- Keep destination search as the primary top-of-screen control and avoid reintroducing large orientation banners.
 - Any new feature should be evaluated in terms of map clarity and tap-target quality on mobile.
 
 ## Collaboration Style For This Repo
@@ -86,8 +90,10 @@ Simple local run option:
 - open: `http://localhost:3000`
 
 Basic manual QA areas:
+- address/place search success, failure, and no-result handling
+- map fly-to after searched destination
 - category selection
-- temporary context header collapse after meaningful engagement
+- temporary destination marker behavior
 - persistent locate control and recenter flow
 - search-state button behavior across idle, loading, stale, error, and ready states
 - `Search this area`

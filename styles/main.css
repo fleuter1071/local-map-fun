@@ -15,6 +15,7 @@
   --safe-bottom: max(14px, env(safe-area-inset-bottom));
   --control-h: 44px;
   --locate-offset-bottom: 136px;
+  --control-radius: 22px;
 }
 
 * {
@@ -75,68 +76,122 @@ input {
   gap: 8px;
 }
 
-.context-bar,
+.address-search,
 .category-strip {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-radius: 22px;
+  border-radius: var(--control-radius);
   padding: 10px 12px;
 }
 
-.context-bar {
-  overflow: hidden;
-  max-height: 132px;
-  opacity: 1;
-  transform: translateY(0);
-  transform-origin: top center;
-  transition:
-    max-height 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    margin 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1);
+.address-search {
+  padding: 8px 10px 10px;
 }
 
-.context-bar.is-hidden {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-10px);
-  padding-top: 0;
-  padding-bottom: 0;
-  margin-bottom: -8px;
-  border-color: transparent;
-  box-shadow: none;
-  pointer-events: none;
+.address-search-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
 }
 
-.context-copy {
-  min-width: 0;
+.address-search-icon {
+  position: relative;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(19, 103, 209, 0.68);
+}
+
+.address-search-icon::after {
+  content: "";
+  position: absolute;
+  width: 7px;
+  height: 2px;
+  right: -3px;
+  bottom: 0;
+  border-radius: 999px;
+  transform: rotate(45deg);
+  background: rgba(19, 103, 209, 0.68);
+}
+
+.address-search-input {
   flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  outline: none;
 }
 
-.context-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.address-search-input::placeholder {
   color: var(--muted);
+  font-weight: 560;
 }
 
-.context-title {
-  margin-top: 2px;
-  font-size: 20px;
-  font-weight: 760;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
+.address-clear-btn,
+.address-submit-btn {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  min-height: 34px;
+  cursor: pointer;
 }
 
-.context-sub {
-  margin-top: 5px;
+.address-clear-btn {
+  width: 34px;
+  padding: 0;
+  background: rgba(17, 33, 51, 0.05);
+  color: var(--muted-strong);
+}
+
+.address-clear-btn[hidden] {
+  display: none !important;
+}
+
+.address-submit-btn {
+  min-width: 54px;
+  padding: 0 14px;
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 13px;
+  font-weight: 760;
+}
+
+.address-submit-spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(19, 103, 209, 0.22);
+  border-top-color: rgba(19, 103, 209, 0.92);
+  animation: spin 0.7s linear infinite;
+}
+
+.address-search.is-loading .address-submit-label {
+  display: none;
+}
+
+.address-search.is-loading .address-submit-spinner {
+  display: inline-block;
+}
+
+.address-search-status {
+  margin-top: 6px;
+  padding-left: 28px;
+  font-size: 12px;
   line-height: 1.35;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.address-search-status[data-tone="error"] {
+  color: #b03a50;
+}
+
+.address-search-status[data-tone="muted"] {
   color: var(--muted-strong);
 }
 
@@ -244,7 +299,7 @@ input {
   width: 100%;
   min-height: 54px;
   border: 1px solid rgba(19, 103, 209, 0.12);
-  border-radius: 22px;
+  border-radius: var(--control-radius);
   background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow);
   display: flex;
@@ -666,12 +721,20 @@ input {
 
 .icon-btn:active,
 .chip:active,
+.address-clear-btn:active,
+.address-submit-btn:active,
 .search-state-btn:active,
 .result-bar:active,
 .result-row:active,
 .detail-back:active,
 .detail-close:active {
   transform: translateY(1px);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (min-width: 768px) {

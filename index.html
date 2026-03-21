@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Local Explorer — Compact Chip Update</title>
+  <title>Local Explorer</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <link rel="stylesheet" href="styles/main.css" />
 </head>
@@ -14,13 +14,26 @@
       <span class="locate-glyph" aria-hidden="true"></span>
     </button>
     <div class="top-ui">
-      <div class="context-bar glass" id="contextBar">
-        <div class="context-copy">
-          <div class="context-eyebrow" id="contextEyebrow">Local Explorer</div>
-          <div class="context-title" id="contextTitle">Explore nearby</div>
-          <div class="context-sub" id="contextSub">Choose a category to see what is nearby.</div>
+      <form class="address-search glass" id="addressSearchForm" role="search" novalidate>
+        <div class="address-search-shell">
+          <span class="address-search-icon" aria-hidden="true"></span>
+          <input
+            class="address-search-input"
+            id="addressSearchInput"
+            type="search"
+            placeholder="Search an address or place"
+            autocomplete="street-address"
+            enterkeyhint="search"
+            aria-label="Search an address or place"
+          />
+          <button class="address-clear-btn" id="addressClearBtn" type="button" aria-label="Clear address search" hidden>✕</button>
+          <button class="address-submit-btn" id="addressSubmitBtn" type="submit">
+            <span class="address-submit-label">Go</span>
+            <span class="address-submit-spinner" id="addressSubmitSpinner" aria-hidden="true"></span>
+          </button>
         </div>
-      </div>
+        <div class="address-search-status" id="addressSearchStatus" hidden aria-live="polite"></div>
+      </form>
       <div class="category-strip glass">
         <div class="chip-rail" id="chipRail" aria-label="Quick categories"></div>
       </div>

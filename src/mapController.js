@@ -1,4 +1,14 @@
 export function createMapController({ mapElementId, defaultCenter, defaultZoom, onBackgroundMapClick, onMarkerSelect, onMoveStart, onMoveEnd }) {
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>\"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      "\"": "&quot;",
+      "'": "&#39;"
+    }[character]));
+  }
+
   const map = L.map(mapElementId, { zoomControl: false, preferCanvas: true }).setView(defaultCenter, defaultZoom);
   L.control.zoom({ position: "bottomleft" }).addTo(map);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -7,6 +17,7 @@ export function createMapController({ mapElementId, defaultCenter, defaultZoom, 
   }).addTo(map);
 
   const resultLayer = L.layerGroup().addTo(map);
+  const destinationLayer = L.layerGroup().addTo(map);
   let userMarker = null;
 
   map.on("click", (event) => {
@@ -40,6 +51,19 @@ export function createMapController({ mapElementId, defaultCenter, defaultZoom, 
     clearResults() {
       resultLayer.clearLayers();
     },
+    setDestination(place) {
+      destinationLayer.clearLayers();
+      if (!place) {
+        return;
+      }
+
+      L.marker([place.lat, place.lng])
+        .addTo(destinationLayer)
+        .bindPopup(`<div class="popup-name">${escapeHtml(place.label)}</div><div class="popup-meta">Searched destination</div>`);
+    },
+    clearDestination() {
+      destinationLayer.clearLayers();
+    },
     flyToPlace(place) {
       map.flyTo([place.lat, place.lng], Math.max(map.getZoom(), 17), { duration: 0.45 });
     },
@@ -66,6 +90,9 @@ export function createMapController({ mapElementId, defaultCenter, defaultZoom, 
     },
     flyToCoordinates(lat, lng, duration = 0.35) {
       map.flyTo([lat, lng], 15, { duration });
+    },
+    flyToDestination(place) {
+      map.flyTo([place.lat, place.lng], Math.max(map.getZoom(), 16), { duration: 0.45 });
     }
   };
 }

@@ -282,3 +282,53 @@ Value provided: Preserves more vertical map space after orientation, makes the p
 1. Run a manual mobile QA pass on locate reachability, chip positioning, and bottom-corner control overlap.
 2. Confirm the new bottom-right control does not fight the discovery sheet during list/detail browsing.
 3. Refine transitions later if the header collapse still feels too abrupt in browser testing.
+
+## Date/time
+2026-03-20 15:30:00 -04:00
+
+## Feature name, description, and value provided
+Feature name: Address Search Top-Bar Refactor
+Description: Replaced the temporary orientation header with a persistent address/place search bar at the top of the app, added a separate geocoding service for best-match destination search, and kept the category and nearby-results flow below it. Successful searches now move the map to the matched destination and drop a temporary destination marker.
+Value provided: Makes the app feel more like a familiar map tool, lets users explore around any searched destination instead of only their current location, and simplifies the top-of-screen hierarchy by removing orientation chrome.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\index.html
+- C:\Users\dougs\local-map-fun\styles\main.css
+- C:\Users\dougs\local-map-fun\src\main.js
+- C:\Users\dougs\local-map-fun\src\state.js
+- C:\Users\dougs\local-map-fun\src\mapController.js
+- C:\Users\dougs\local-map-fun\src\services\geocoding.js
+- C:\Users\dougs\local-map-fun\src\ui\renderers.js
+- C:\Users\dougs\local-map-fun\README.md
+- C:\Users\dougs\local-map-fun\AGENTS.md
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Added a dedicated geocoding service instead of mixing address lookup into the nearby-places service.
+- Removed the temporary header state path and promoted destination search to the primary top-of-screen control.
+- Kept address lookup and nearby category search as separate user actions so map movement stays predictable.
+
+## Assumptions
+- Best-match destination search is sufficient for the first version without an intermediate result picker.
+- The app should continue using no-cost third-party browser APIs for now, accepting best-effort reliability.
+- Searching for an address or place should move the map but not automatically run nearby category search.
+
+## Known limitations
+- The free geocoder may miss ambiguous queries or rate-limit more aggressively than a paid provider.
+- No autocomplete or multi-result disambiguation is included in this version.
+- Validation remains limited to syntax checks until a browser QA pass is completed.
+
+## Key learnings that you can bring with you to future sessions
+- Once destination search exists, the temporary orientation header becomes unnecessary UI weight.
+- Keeping destination search and nearby category search separate preserves user control and avoids surprising automatic refreshes.
+- Free geocoding is valuable for scope and cost control, but the UI needs graceful failure states because reliability is not guaranteed.
+
+## Remaining TODOs
+- Run browser QA on mobile for keyboard behavior, destination-marker clarity, and interaction between searched destinations and category refresh.
+- Decide later whether the app needs a small result picker for ambiguous searches.
+- Revisit provider strategy if traffic or reliability expectations increase.
+
+## Next steps
+1. Do a browser smoke test of address search success, failure, and no-result cases.
+2. Validate that selected categories correctly transition to `Search this area` after a destination search.
+3. Decide whether to ship this directly or tune spacing and copy after mobile testing.
