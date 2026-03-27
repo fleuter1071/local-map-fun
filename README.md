@@ -14,6 +14,14 @@ Users can:
 ## Run Locally
 From the repo root:
 
+Start the search API:
+
+```powershell
+node server/index.js
+```
+
+In a second terminal, start the static frontend:
+
 ```powershell
 python -m http.server 3000
 ```
@@ -22,14 +30,19 @@ Then open:
 
 `http://localhost:3000`
 
+Local API health check:
+
+`http://localhost:8787/health`
+
 ## Current Architecture
 This app currently uses a frontend-only architecture.
 
 What that means in plain language:
 - the browser loads the page directly
 - Leaflet handles the map
-- the browser asks the Overpass API for nearby places
-- there is no backend server yet for caching, rate limiting, or data shaping
+- the browser renders the UI and map interactions
+- a small local/backend search API now handles top-bar search orchestration
+- category chip search still uses Overpass directly from the browser today
 
 This repo was recently refactored from a single-file prototype into a modular frontend structure.
 
@@ -52,10 +65,20 @@ This repo was recently refactored from a single-file prototype into a modular fr
   - address and place lookup for map repositioning and ambiguous-match selection
 - `src/services/places.js`
   - Overpass query building, fetches, and place normalization
+- `src/services/searchApi.js`
+  - frontend client for the local/backend search API
 - `src/ui/renderers.js`
   - chips, sheets, result list, and place detail rendering
 - `src/utils.js`
   - shared helpers
+- `server/index.js`
+  - local/backend API entrypoint
+- `server/services/searchOrchestrator.js`
+  - query routing and provider orchestration for top-bar search
+- `server/providers/nominatim.js`
+  - backend Nominatim client
+- `server/providers/overpass.js`
+  - backend Overpass client for backend-routed category search
 
 ## Repo Guidance Files
 - `AGENTS.md`

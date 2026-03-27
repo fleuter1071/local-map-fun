@@ -1,4 +1,4 @@
-export const categories = [
+const categories = [
   { id: "park", label: "Parks", desc: "Parks and green spaces", tags: ["leisure=park", "landuse=recreation_ground"] },
   { id: "coffee", label: "Coffee", desc: "Cafes and coffee shops", tags: ["amenity=cafe", "shop=coffee"] },
   { id: "restaurant", label: "Restaurants", desc: "Sit-down food nearby", tags: ["amenity=restaurant"] },
@@ -9,23 +9,27 @@ export const categories = [
   { id: "gym", label: "Gyms", desc: "Fitness and training", tags: ["leisure=fitness_centre", "sport=fitness"] }
 ];
 
-export const quickCategoryIds = ["park", "coffee", "restaurant", "pharmacy"];
-export const defaultCenter = [40.876, -73.910];
-export const defaultZoom = 14;
-export const searchRadiusMeters = 1300;
-export const searchApiOrigin = (() => {
-  const configuredOrigin = globalThis.__LOCAL_EXPLORER_API_ORIGIN__;
-  if (configuredOrigin) {
-    return configuredOrigin;
-  }
+const categoryAliases = new Map([
+  ["cafe", "coffee"],
+  ["cafes", "coffee"],
+  ["coffee shop", "coffee"],
+  ["coffee shops", "coffee"],
+  ["drug store", "pharmacy"],
+  ["drug stores", "pharmacy"],
+  ["pharmacies", "pharmacy"],
+  ["restaurants", "restaurant"],
+  ["parks", "park"],
+  ["groceries", "grocery"],
+  ["grocery store", "grocery"],
+  ["grocery stores", "grocery"],
+  ["supermarket", "grocery"],
+  ["supermarkets", "grocery"],
+  ["bakeries", "bakery"],
+  ["gyms", "gym"],
+  ["playgrounds", "playground"]
+]);
 
-  if (globalThis.location?.hostname === "localhost" || globalThis.location?.hostname === "127.0.0.1") {
-    return `${globalThis.location.protocol}//${globalThis.location.hostname}:8787`;
-  }
-
-  return "";
-})();
-
-export function getCategoryById(categoryId) {
-  return categories.find((category) => category.id === categoryId) || null;
-}
+module.exports = {
+  categories,
+  categoryAliases
+};

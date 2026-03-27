@@ -1,0 +1,8 @@
+{
+  "name": "local-map-fun",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start:api": "node server/index.js"
+  }
+}

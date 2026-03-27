@@ -414,3 +414,63 @@ Value provided: Makes repeated ambiguous searches more predictable, keeps rankin
 1. Test repeated searches like `Angelo's` to confirm the picker reappears consistently.
 2. Spot-check that local map context is clearly reflected in picker ordering.
 3. Keep tuning only if real-world searches show ranking surprises.
+
+## Date/time
+2026-03-27 08:54:29 -04:00
+
+## Feature name, description, and value provided
+Feature name: Thin Search Backend For Local-First Top-Bar Search
+Description: Added a small Node backend to handle top-bar search routing and provider orchestration, then rewired the frontend search bar to call that backend instead of talking directly to providers in the browser. The new search contract distinguishes category search, nearby name search, destination search, and explicit broader fallback so the UI can avoid silently mixing local intent with faraway global results.
+Value provided: Makes search behavior more predictable, creates a clean place to control provider fallback and reliability, and gives the app a practical path forward without forcing a large platform rewrite.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\package.json
+- C:\Users\dougs\local-map-fun\server\index.js
+- C:\Users\dougs\local-map-fun\server\config.js
+- C:\Users\dougs\local-map-fun\server\constants.js
+- C:\Users\dougs\local-map-fun\server\utils\geo.js
+- C:\Users\dougs\local-map-fun\server\utils\text.js
+- C:\Users\dougs\local-map-fun\server\providers\nominatim.js
+- C:\Users\dougs\local-map-fun\server\providers\overpass.js
+- C:\Users\dougs\local-map-fun\server\services\classifyQuery.js
+- C:\Users\dougs\local-map-fun\server\services\searchOrchestrator.js
+- C:\Users\dougs\local-map-fun\src\config.js
+- C:\Users\dougs\local-map-fun\src\main.js
+- C:\Users\dougs\local-map-fun\src\state.js
+- C:\Users\dougs\local-map-fun\src\services\searchApi.js
+- C:\Users\dougs\local-map-fun\README.md
+- C:\Users\dougs\local-map-fun\AGENTS.md
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Added a thin backend instead of continuing to orchestrate top-bar search entirely in the browser.
+- Kept the backend dependency-light with built-in Node modules rather than adding a larger server framework immediately.
+- Moved query classification and provider fallback rules into one backend orchestrator.
+- Kept category chip search unchanged for now to limit scope while moving top-bar search to the backend first.
+- Made broader fallback explicit in the API contract so the frontend can offer a user-visible `Show broader results` path instead of silently returning faraway matches.
+
+## Assumptions
+- A small Node backend is acceptable in this repo now that local-first search behavior matters more than staying frontend-only.
+- Free provider quality will still be imperfect, so explicit fallback control is more important than pretending the results are precise.
+- The backend can remain small and app-specific unless product scope grows materially.
+
+## Known limitations
+- Nearby business-name accuracy still depends on free providers and remains best-effort.
+- Category chip search still calls Overpass directly from the browser, so search behavior is not fully unified yet.
+- Local browser QA still needs to confirm the new backend plus frontend interaction end to end.
+- Render free-tier cold starts and public-provider latency can still make the first search feel slow.
+
+## Key learnings that you can bring with you to future sessions
+- The core product problem was not only query heuristics but provider orchestration and fallback control.
+- A thin backend is now part of the intended architecture for top-bar search.
+- It is better to expose broader fallback as a deliberate UX step than to silently substitute global results for a local-intent query.
+
+## Remaining TODOs
+- Run a focused local browser QA pass against the new backend-driven top-bar search.
+- Decide whether category chip search should also move behind the backend for consistency and reliability.
+- Add lightweight backend logging or caching later if debugging provider quality becomes a recurring need.
+
+## Next steps
+1. Start `node server/index.js` and `python -m http.server 3000`, then manually test top-bar category, nearby-name, destination, and broader-fallback flows.
+2. Tune backend nearby-name scoring and fallback thresholds using real example queries like `Joe's Coffee`.
+3. Decide whether to deploy the backend as a separate free Render service after local QA passes.

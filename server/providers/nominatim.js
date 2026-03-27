@@ -1,4 +1,5 @@
-import { getDistanceMeters } from "../utils.js";
+const { REQUEST_TIMEOUT_MS } = require("../config.js");
+const { getDistanceMeters, formatDistanceMeters } = require("../utils/geo.js");
 
 function buildAddressSummary(address) {
   if (!address) {
@@ -13,7 +14,7 @@ function buildAddressSummary(address) {
   ].filter(Boolean).join(", ");
 }
 
-export function normalizeGeocodingResult(result, center = null) {
+function normalizeCandidate(result, anchor) {
   if (!result) {
     return null;
   }
@@ -24,6 +25,7 @@ export function normalizeGeocodingResult(result, center = null) {
     return null;
   }
 
+  const distanceMeters = anchor ? Math.round(getDistanceMeters(anchor, { lat, lng })) : null;
   return {
     id: result.place_id ? `geocode-${result.place_id}` : `geocode-${lat}-${lng}`,
     label: result.display_name || result.name || "Matched place",
@@ -31,11 +33,47 @@ export function normalizeGeocodingResult(result, center = null) {
     addressSummary: buildAddressSummary(result.address),
     lat,
     lng,
-    distanceMeters: center ? Math.round(getDistanceMeters(center, { lat, lng })) : null
+    distanceMeters,
+    distanceText: formatDistanceMeters(distanceMeters),
+    typeLabel: "Place"
   };
 }
 
-export async function geocodeQuery(query, { signal, limit = 5, viewbox, bounded = false } = {}) {
+async function fetchJson(url, { signal }) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error("Timeout")), REQUEST_TIMEOUT_MS);
+  const onAbort = () => controller.abort(new Error("Aborted"));
+
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeout);
+      throw new Error("Aborted");
+    }
+    signal.addEventListener("abort", onAbort, { once: true });
+  }
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "local-map-fun-search-backend/1.0"
+      },
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
+async function searchNominatim(query, { signal, limit = 5, viewbox, bounded = false, anchor = null } = {}) {
   const text = String(query || "").trim();
   if (!text) {
     return [];
@@ -55,25 +93,9 @@ export async function geocodeQuery(query, { signal, limit = 5, viewbox, bounded 
     }
   }
 
-  const response = await fetch(url, {
-    method: "GET",
-    signal,
-    headers: {
-      Accept: "application/json"
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  const payload = await response.json();
-  const center = viewbox
-    ? { lat: (viewbox.north + viewbox.south) / 2, lng: (viewbox.east + viewbox.west) / 2 }
-    : null;
-
+  const payload = await fetchJson(url, { signal });
   return (Array.isArray(payload) ? payload : [])
-    .map((result) => normalizeGeocodingResult(result, center))
+    .map((result) => normalizeCandidate(result, anchor))
     .filter(Boolean)
     .sort((left, right) => {
       if (left.distanceMeters != null && right.distanceMeters != null) {
@@ -82,3 +104,7 @@ export async function geocodeQuery(query, { signal, limit = 5, viewbox, bounded 
       return 0;
     });
 }
+
+module.exports = {
+  searchNominatim
+};

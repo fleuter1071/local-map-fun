@@ -24,11 +24,13 @@ Keep this file focused on how to work in the repo. Do not use it as a feature hi
   - one bottom discovery sheet for both results and place details
 
 ## Current Architecture
-- Frontend-only application.
-- No backend at the moment.
-- Static app served locally or from static hosting.
+- Static frontend plus a thin search backend.
+- Frontend is still a lightweight browser app.
+- Backend is a small Node service for top-bar search orchestration.
+- Static app can still be served locally or from static hosting.
 - Mapping library: Leaflet.
-- Place search source: Overpass API called from the browser.
+- Top-bar search is routed through the backend.
+- Category chip search still uses Overpass API from the browser today.
 - Geolocation: browser `navigator.geolocation`.
 
 ## File Structure
@@ -42,24 +44,30 @@ Core app files:
 - `src/services/geolocation.js`: browser geolocation access
 - `src/services/geocoding.js`: address/place lookup, result biasing, and ambiguous-match selection
 - `src/services/places.js`: Overpass query building, fetches, and place normalization
+- `src/services/searchApi.js`: frontend client for the backend search API
 - `src/ui/renderers.js`: chips, sheets, result list, and place detail rendering
 - `src/utils.js`: shared helpers
+- `server/index.js`: backend entrypoint
+- `server/services/searchOrchestrator.js`: backend query routing and fallback logic
+- `server/providers/nominatim.js`: backend Nominatim client
+- `server/providers/overpass.js`: backend Overpass client
 
 ## Working Principles For This Repo
-- Preserve the frontend-only architecture unless there is a clear reason to add a backend.
+- Keep the backend thin and focused on search orchestration, provider control, and reliability.
 - Prefer boring, maintainable JavaScript modules over a framework rewrite.
 - Keep map behavior, data-fetch behavior, and UI rendering separated.
 - Make small, coherent changes instead of large rewrites.
 - Maintain the current mobile-first interaction model unless asked to redesign it.
 
 ## Recommended Near-Term Architecture Direction
-- Continue with modular frontend files.
-- If reliability or scale becomes a problem later, consider adding a thin backend proxy for place search.
+- Continue with modular frontend files plus the thin backend search layer.
+- Route search logic that needs provider choice, fallback control, or reliability handling through the backend.
 - Do not jump to a full framework or large platform redesign unless product scope clearly demands it.
 
 ## Reliability Guidance
 - Treat Overpass API as an unstable dependency.
 - Treat free geocoding as a best-effort dependency with rate limits and occasional misses.
+- Use the backend to make fallback behavior explicit instead of silently swapping local intent for broad global results.
 - For ambiguous place-name queries, prefer showing a short candidate picker over auto-jumping to a weak global match.
 - Keep request cancellation behavior when starting a new search.
 - Prefer explicit loading, empty, and error states.
@@ -87,7 +95,8 @@ When working with the user in this repo:
 
 ## Run And Verify
 Simple local run option:
-- from repo root: `python -m http.server 3000`
+- from repo root, start backend: `node server/index.js`
+- in a second terminal, start frontend: `python -m http.server 3000`
 - open: `http://localhost:3000`
 
 Basic manual QA areas:

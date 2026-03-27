@@ -1,6 +1,9 @@
 export function createAppState() {
   return {
     selectedCategoryId: null,
+    searchMode: "idle",
+    localSearchQuery: "",
+    canBroadSearch: false,
     userLatLng: null,
     currentPlaces: [],
     activePlaceId: null,
