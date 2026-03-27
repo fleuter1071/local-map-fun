@@ -474,3 +474,49 @@ Value provided: Makes search behavior more predictable, creates a clean place to
 1. Start `node server/index.js` and `python -m http.server 3000`, then manually test top-bar category, nearby-name, destination, and broader-fallback flows.
 2. Tune backend nearby-name scoring and fallback thresholds using real example queries like `Joe's Coffee`.
 3. Decide whether to deploy the backend as a separate free Render service after local QA passes.
+
+## Date/time
+2026-03-27 16:57:11 -04:00
+
+## Feature name, description, and value provided
+Feature name: Render Blueprint Setup For Static Frontend + Search API
+Description: Added Render deployment wiring so the repo can stand up both the static frontend and the Node search backend from one Blueprint configuration. The frontend now reads a runtime-injected API origin file so production can point at the Render API service without hardcoding localhost behavior.
+Value provided: Makes the new backend-driven search architecture deployable on Render with a clearer path from local development to production.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\render.yaml
+- C:\Users\dougs\local-map-fun\scripts\build-static.js
+- C:\Users\dougs\local-map-fun\runtime-config.js
+- C:\Users\dougs\local-map-fun\index.html
+- C:\Users\dougs\local-map-fun\src\config.js
+- C:\Users\dougs\local-map-fun\README.md
+- C:\Users\dougs\local-map-fun\.gitignore
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Chose a Render Blueprint with two services instead of trying to fold the static frontend and backend API into one deploy step immediately.
+- Added a small runtime config file so the static frontend can receive the production API origin at build time.
+- Switched the static build helper to a Node script so it is easier to validate locally on Windows and in Render.
+
+## Assumptions
+- The intended production API service name is `local-map-fun-api` unless renamed in Render.
+- Render Blueprint deployment is acceptable for the current production workflow.
+
+## Known limitations
+- Render deployment still needs to be created in the Render dashboard from the pushed repo configuration.
+- If the API service name changes, the `SEARCH_API_ORIGIN` value in `render.yaml` must change with it.
+- Free-tier cold starts and free-provider latency still affect perceived search speed.
+
+## Key learnings that you can bring with you to future sessions
+- Static frontend deploys need a runtime-config strategy once a separate backend exists.
+- A small Node build helper is easier to maintain across local Windows work and Render static builds than a shell script.
+
+## Remaining TODOs
+- Create or update the Render Blueprint in the Render dashboard.
+- Verify the deployed static site can reach the deployed API service.
+- Decide later whether category chip search should also route through the backend in production.
+
+## Next steps
+1. Push the Render config files to `main`.
+2. Create the Render Blueprint from the repo and let Render provision both services.
+3. Verify live health and top-bar search behavior after deploy.

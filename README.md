@@ -34,6 +34,25 @@ Local API health check:
 
 `http://localhost:8787/health`
 
+## Deploy On Render
+This repo now includes a Render Blueprint at [render.yaml](C:/Users/dougs/local-map-fun/render.yaml) that defines:
+- `local-map-fun-api`
+  - Node web service for `server/index.js`
+- `local-map-fun-web`
+  - static frontend service built from `dist/`
+
+How to deploy:
+- push the latest `main`
+- in Render, create a new Blueprint service from this repo
+- let Render create both services from `render.yaml`
+- confirm the API service comes up first
+- then open the static site and verify top-bar search
+
+The static build injects `SEARCH_API_ORIGIN` into `runtime-config.js`, so the frontend points at:
+- `https://local-map-fun-api.onrender.com`
+
+If you rename the API service in Render, update `SEARCH_API_ORIGIN` in [render.yaml](C:/Users/dougs/local-map-fun/render.yaml) to match.
+
 ## Current Architecture
 This app currently uses a frontend-only architecture.
 

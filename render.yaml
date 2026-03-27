@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: local-map-fun-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:api
+
+  - type: web
+    name: local-map-fun-web
+    runtime: static
+    buildCommand: node ./scripts/build-static.js
+    staticPublishPath: ./dist
+    envVars:
+      - key: SEARCH_API_ORIGIN
+        value: https://local-map-fun-api.onrender.com
