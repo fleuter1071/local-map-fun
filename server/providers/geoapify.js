@@ -1,25 +1,18 @@
-const { REQUEST_TIMEOUT_MS } = require("../config.js");
+const { GEOAPIFY_API_KEY, REQUEST_TIMEOUT_MS } = require("../config.js");
 const { getDistanceMeters, formatDistanceMeters } = require("../utils/geo.js");
 const { createProviderError } = require("../utils/providerError.js");
 
-function buildAddressSummary(address) {
-  if (!address) {
-    return "";
-  }
-
+function buildAddressSummary(result) {
   return [
-    address.neighbourhood || address.suburb || address.hamlet,
-    address.city || address.town || address.village || address.county,
-    address.state,
-    address.country_code ? String(address.country_code).toUpperCase() : ""
+    result.address_line1,
+    result.address_line2,
+    result.city,
+    result.state,
+    result.country_code ? String(result.country_code).toUpperCase() : ""
   ].filter(Boolean).join(", ");
 }
 
-function normalizeCandidate(result, anchor) {
-  if (!result) {
-    return null;
-  }
-
+function normalizeGeoapifyResult(result, anchor) {
   const lat = Number(result.lat);
   const lng = Number(result.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
@@ -27,16 +20,19 @@ function normalizeCandidate(result, anchor) {
   }
 
   const distanceMeters = anchor ? Math.round(getDistanceMeters(anchor, { lat, lng })) : null;
+  const confidence = typeof result.rank?.confidence === "number" ? result.rank.confidence : null;
+
   return {
-    id: result.place_id ? `geocode-${result.place_id}` : `geocode-${lat}-${lng}`,
-    label: result.display_name || result.name || "Matched place",
-    shortLabel: result.name || result.display_name?.split(",")[0] || "Matched place",
-    addressSummary: buildAddressSummary(result.address),
+    id: result.place_id ? `geoapify-${result.place_id}` : `geoapify-${lat}-${lng}`,
+    label: result.formatted || result.address_line1 || result.name || "Matched place",
+    shortLabel: result.name || result.address_line1 || result.formatted?.split(",")[0] || "Matched place",
+    addressSummary: buildAddressSummary(result),
     lat,
     lng,
     distanceMeters,
     distanceText: formatDistanceMeters(distanceMeters),
-    typeLabel: "Place"
+    typeLabel: result.result_type || result.datasource?.sourcename || "Place",
+    confidence
   };
 }
 
@@ -67,7 +63,7 @@ async function fetchJson(url, { signal }) {
     });
 
     if (!response.ok) {
-      throw createProviderError("Nominatim request failed.", {
+      throw createProviderError("Geoapify request failed.", {
         statusCode: response.status,
         code: response.status === 429 ? "provider_rate_limited" : "provider_http_error",
         detail: `HTTP ${response.status}`
@@ -77,7 +73,7 @@ async function fetchJson(url, { signal }) {
     return response.json();
   } catch (error) {
     if (error.name === "AbortError") {
-      throw createProviderError("Nominatim request timed out.", {
+      throw createProviderError("Geoapify request timed out.", {
         statusCode: 504,
         code: "provider_timeout",
         detail: "Timeout"
@@ -91,38 +87,44 @@ async function fetchJson(url, { signal }) {
   }
 }
 
-async function searchNominatim(query, { signal, limit = 5, viewbox, bounded = false, anchor = null } = {}) {
+async function searchNearbyName(query, { signal, limit = 12, anchor, radiusMeters } = {}) {
+  if (!GEOAPIFY_API_KEY) {
+    throw createProviderError("Geoapify API key is not configured.", {
+      statusCode: 500,
+      code: "provider_not_configured",
+      detail: "Missing GEOAPIFY_API_KEY"
+    });
+  }
+
   const text = String(query || "").trim();
   if (!text) {
     return [];
   }
 
-  const url = new URL("https://nominatim.openstreetmap.org/search");
-  url.searchParams.set("q", text);
-  url.searchParams.set("format", "jsonv2");
+  const url = new URL("https://api.geoapify.com/v1/geocode/search");
+  url.searchParams.set("text", text);
+  url.searchParams.set("format", "json");
   url.searchParams.set("limit", String(limit));
-  url.searchParams.set("addressdetails", "1");
-  url.searchParams.set("dedupe", "1");
+  url.searchParams.set("apiKey", GEOAPIFY_API_KEY);
 
-  if (viewbox) {
-    url.searchParams.set("viewbox", `${viewbox.west},${viewbox.north},${viewbox.east},${viewbox.south}`);
-    if (bounded) {
-      url.searchParams.set("bounded", "1");
+  if (anchor) {
+    url.searchParams.set("bias", `proximity:${anchor.lng},${anchor.lat}`);
+    if (radiusMeters) {
+      url.searchParams.set("filter", `circle:${anchor.lng},${anchor.lat},${radiusMeters}`);
     }
   }
 
   const payload = await fetchJson(url, { signal });
-  return (Array.isArray(payload) ? payload : [])
-    .map((result) => normalizeCandidate(result, anchor))
+  return (Array.isArray(payload.results) ? payload.results : [])
+    .map((result) => normalizeGeoapifyResult(result, anchor))
     .filter(Boolean)
     .sort((left, right) => {
-      if (left.distanceMeters != null && right.distanceMeters != null) {
-        return left.distanceMeters - right.distanceMeters;
-      }
-      return 0;
+      const leftDistance = left.distanceMeters ?? Number.MAX_SAFE_INTEGER;
+      const rightDistance = right.distanceMeters ?? Number.MAX_SAFE_INTEGER;
+      return leftDistance - rightDistance;
     });
 }
 
 module.exports = {
-  searchNominatim
+  searchNearbyName
 };

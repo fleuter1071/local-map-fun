@@ -520,3 +520,55 @@ Value provided: Makes the new backend-driven search architecture deployable on R
 1. Push the Render config files to `main`.
 2. Create the Render Blueprint from the repo and let Render provision both services.
 3. Verify live health and top-bar search behavior after deploy.
+
+## Date/time
+2026-03-28 16:55:37 -04:00
+
+## Feature name, description, and value provided
+Feature name: Geoapify Nearby-Name Search Swap + Backend Cache
+Description: Replaced the backend nearby-name retrieval path with Geoapify while keeping the existing frontend search contract unchanged. Added a small in-memory cache for nearby-name queries plus clearer provider error mapping for rate limits and timeouts.
+Value provided: Improves the odds of retrieving local business-name matches, reduces repeated upstream calls for the same query area, and gives users clearer messaging when the free provider is temporarily busy.
+
+## Files changed
+- C:\Users\dougs\local-map-fun\server\config.js
+- C:\Users\dougs\local-map-fun\server\providers\geoapify.js
+- C:\Users\dougs\local-map-fun\server\providers\nominatim.js
+- C:\Users\dougs\local-map-fun\server\providers\overpass.js
+- C:\Users\dougs\local-map-fun\server\services\searchOrchestrator.js
+- C:\Users\dougs\local-map-fun\server\utils\cache.js
+- C:\Users\dougs\local-map-fun\server\utils\providerError.js
+- C:\Users\dougs\local-map-fun\src\main.js
+- C:\Users\dougs\local-map-fun\src\services\searchApi.js
+- C:\Users\dougs\local-map-fun\README.md
+- C:\Users\dougs\local-map-fun\render.yaml
+- C:\Users\dougs\local-map-fun\PROJECT_MEMORY.md
+
+## Technical Architecture changes or key technical decisions made
+- Kept the backend and frontend response contract stable while swapping only the nearby-name provider path.
+- Chose Geoapify for nearby-name retrieval instead of migrating category and destination search in the same pass.
+- Added an in-memory cache keyed by normalized query, approximate location bucket, and fallback mode.
+- Standardized provider errors so the backend can map `429`, timeout, and missing-config cases to clearer frontend messages.
+
+## Assumptions
+- A free Geoapify API key will be added to the backend environment in Render and local development as needed.
+- Nearby-name search is the highest-value search path to improve first.
+
+## Known limitations
+- Category search still uses Overpass and destination search still uses Nominatim, so provider behavior remains mixed.
+- Geoapify free-tier quotas and Render free-tier cold starts still limit reliability.
+- In-memory cache resets on service restart and does not persist across instances.
+
+## Key learnings that you can bring with you to future sessions
+- The nearby-name problem was primarily retrieval quality, not only local scoring thresholds.
+- Small backend caches are valuable even on free tiers because they reduce repeated provider calls and rate-limit pressure.
+- Clear provider error mapping materially improves debugging and user feedback.
+
+## Remaining TODOs
+- Add the `GEOAPIFY_API_KEY` secret to the Render API service.
+- Re-test live nearby-name queries like `Joe's Coffee` and `Angelo's` after the new provider is deployed.
+- Decide later whether destination search should also move to Geoapify for consistency.
+
+## Next steps
+1. Add `GEOAPIFY_API_KEY` in Render and redeploy the API service.
+2. Validate live nearby-name queries and watch for improved local retrieval.
+3. Tune thresholds only after observing Geoapify result quality in real usage.

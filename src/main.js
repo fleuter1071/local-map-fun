@@ -497,7 +497,7 @@ async function performSearchRequest(query, { allowBroadFallback = false, centerO
     state.addressSearchStatus = "error";
     state.addressSearchMessage = backendUnavailable
       ? "Search API is not running. Start node server/index.js."
-      : "Search did not respond. Try again.";
+      : error.message || "Search did not respond. Try again.";
     state.geocodeCandidates = [];
     state.canBroadSearch = false;
     mapController.clearResults();
@@ -505,7 +505,7 @@ async function performSearchRequest(query, { allowBroadFallback = false, centerO
       refs.resultsList,
       backendUnavailable
         ? "The local search API is unavailable. Start node server/index.js, then try again."
-        : "The search service did not respond. Try again in a moment."
+        : error.message || "The search service did not respond. Try again in a moment."
     );
     syncDiscoveryUi();
   } finally {

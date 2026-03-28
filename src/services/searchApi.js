@@ -16,7 +16,11 @@ export async function searchFromBackend(payload, { signal } = {}) {
 
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(body.message || `HTTP ${response.status}`);
+    const error = new Error(body.message || `HTTP ${response.status}`);
+    error.statusCode = response.status;
+    error.code = body.error || "search_error";
+    error.detail = body.detail || "";
+    throw error;
   }
 
   return body;

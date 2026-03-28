@@ -52,6 +52,7 @@ The static build injects `SEARCH_API_ORIGIN` into `runtime-config.js`, so the fr
 - `https://local-map-fun-api.onrender.com`
 
 If you rename the API service in Render, update `SEARCH_API_ORIGIN` in [render.yaml](C:/Users/dougs/local-map-fun/render.yaml) to match.
+Also set `GEOAPIFY_API_KEY` on the `local-map-fun-api` service in Render. The Blueprint declares it as a secret placeholder and Render will ask you to provide the value.
 
 ## Current Architecture
 This app currently uses a frontend-only architecture.
@@ -136,10 +137,10 @@ When testing manually, focus on:
 
 ## Recommended Direction
 Near-term direction:
-- stay frontend-only
-- keep the modular structure clean
-- continue separating map logic, search logic, and rendering logic
+- keep the modular frontend plus thin backend structure clean
+- continue separating map logic, search logic, backend orchestration, and rendering logic
 
 Longer-term direction:
-- if reliability or scale becomes a problem, add a thin backend proxy for place search
+- the backend now orchestrates top-bar search
+- nearby-name retrieval is the most likely place to evolve further if provider quality changes
 - do not jump to a large framework rewrite unless product scope clearly demands it

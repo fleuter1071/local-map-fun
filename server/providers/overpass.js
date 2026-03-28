@@ -1,5 +1,6 @@
 const { REQUEST_TIMEOUT_MS } = require("../config.js");
 const { getDistanceMeters, formatDistanceMeters } = require("../utils/geo.js");
+const { createProviderError } = require("../utils/providerError.js");
 
 function compactAddress(tags) {
   if (!tags) {
@@ -80,13 +81,16 @@ function normalizePlaces(elements, center) {
 
 async function searchNearbyCategory(category, center, radiusMeters, { signal } = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(new Error("Timeout")), REQUEST_TIMEOUT_MS);
-  const onAbort = () => controller.abort(new Error("Aborted"));
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const onAbort = () => controller.abort();
 
   if (signal) {
     if (signal.aborted) {
       clearTimeout(timeout);
-      throw new Error("Aborted");
+      throw createProviderError("Request aborted.", {
+        code: "provider_aborted",
+        detail: "Aborted"
+      });
     }
     signal.addEventListener("abort", onAbort, { once: true });
   }
@@ -100,11 +104,25 @@ async function searchNearbyCategory(category, center, radiusMeters, { signal } =
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw createProviderError("Overpass request failed.", {
+        statusCode: response.status,
+        code: response.status === 429 ? "provider_rate_limited" : "provider_http_error",
+        detail: `HTTP ${response.status}`
+      });
     }
 
     const payload = await response.json();
     return normalizePlaces(payload.elements || [], center);
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw createProviderError("Overpass request timed out.", {
+        statusCode: 504,
+        code: "provider_timeout",
+        detail: "Timeout"
+      });
+    }
+
+    throw error;
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", onAbort);

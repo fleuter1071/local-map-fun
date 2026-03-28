@@ -5,6 +5,9 @@ services:
     plan: free
     buildCommand: npm install
     startCommand: npm run start:api
+    envVars:
+      - key: GEOAPIFY_API_KEY
+        sync: false
 
   - type: web
     name: local-map-fun-web
